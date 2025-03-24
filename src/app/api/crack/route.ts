@@ -3,8 +3,7 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 
 import config from '@/config';
-import { HashJob } from '@/utils/jobQueue';
-import { jobQueue } from '@/utils/jobQueue';
+import { HashJob, jobQueue } from '@/utils/jobQueue';
 import { logger } from '@/utils/logger';
 
 export interface CrackRequest {
@@ -39,7 +38,7 @@ export async function POST(req: NextRequest) {
     // Create a new job
     const job: HashJob = {
       id: crypto.randomUUID(),
-      hashes,
+      hashes: hashes.map(hash => hash.toLowerCase()),
       type: hashType,
       mode: attackMode,
       status: 'pending',

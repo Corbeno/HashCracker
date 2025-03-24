@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 import DebugPanel from '@/app/components/DebugPanel';
 import JobProgressBar from '@/app/components/JobProgressBar';
@@ -83,6 +83,7 @@ export default function ActiveJobsPanel({
       setError('Failed to cancel job. See console for details.');
     }
   };
+
   return (
     <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl border border-gray-700">
       <h2 className="text-2xl font-bold mb-4">Active Jobs</h2>

@@ -14,7 +14,6 @@ export default function DebugPanel({ job }: DebugPanelProps) {
         2
       )
     : null;
-
   return (
     <div className="mt-4 pt-4 border-t border-gray-700 space-y-4">
       {job.debugInfo.command && (
@@ -27,7 +26,7 @@ export default function DebugPanel({ job }: DebugPanelProps) {
       )}
 
       <div>
-        <h3 className="text-sm font-medium text-gray-400 mb-2">New hashes cracked this run</h3>
+        <h3 className="text-sm font-medium text-gray-400 mb-2">New hashes cracked this run:</h3>
         <div className="space-y-2">
           {job.results?.map((result: CrackedHash, i: number) => (
             <div key={i} className="font-mono text-sm">
@@ -40,7 +39,7 @@ export default function DebugPanel({ job }: DebugPanelProps) {
               )}
             </div>
           ))}
-          {job.results?.length === 0 && <div className="text-white text-sm">Results</div>}
+          {job.results?.length === 0 && <div className="text-white text-sm">No results</div>}
         </div>
       </div>
 
