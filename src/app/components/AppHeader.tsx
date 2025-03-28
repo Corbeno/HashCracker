@@ -1,7 +1,6 @@
 'use client';
 
 import Image from 'next/image';
-import React from 'react';
 
 import Logo from '@/app/components/Logo';
 import SystemInfoPanel from '@/app/components/SystemInfoPanel';
@@ -22,19 +21,14 @@ export default function AppHeader({
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
           <Logo className="hover:opacity-80 transition-opacity" />
-          <a 
-            href="https://github.com/Corbeno/HashCracker" 
-            target="_blank" 
+          <a
+            href="https://github.com/Corbeno/HashCracker"
+            target="_blank"
             rel="noopener noreferrer"
             className="flex items-center hover:opacity-80 transition-opacity"
             title="View on GitHub"
           >
-            <Image
-              src="/icons/github.svg"
-              alt="GitHub"
-              width={24}
-              height={24}
-            />
+            <Image src="/icons/github.svg" alt="GitHub" width={24} height={24} />
           </a>
         </div>
       </div>
