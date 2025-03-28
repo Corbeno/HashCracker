@@ -198,6 +198,7 @@ export class JobQueue {
       if (nextJob) {
         this.isProcessing = true;
         this.currentJob = nextJob;
+        nextJob.status = 'running';
         this.startJob(nextJob);
       }
     }
