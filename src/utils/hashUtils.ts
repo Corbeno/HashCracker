@@ -278,7 +278,9 @@ export class HashCracker extends EventEmitter {
       });
 
       const debugInfo = {
-        command: `${hashcatPath} ${args.join(' ')}`,
+        command: `hashcat ${args
+          .map(arg => (arg.includes(path.sep) ? path.basename(arg) : arg))
+          .join(' ')}`,
         output: [],
         error: [],
         progress: 0,
