@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
       const uniqueHashes = [...new Set(hashes)];
 
       return NextResponse.json({
-        hashes: uniqueHashes,
+        hashes: uniqueHashes.map(hash => hash.toLowerCase()),
         hashType: {
           id: hashTypeConfig.id,
           name: hashTypeConfig.name,
