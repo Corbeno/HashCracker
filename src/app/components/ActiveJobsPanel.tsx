@@ -178,7 +178,7 @@ export default function ActiveJobsPanel({
                   return (
                     <div
                       key={i}
-                      className={`truncate ${crackedHash ? 'text-green-400' : 'text-gray-400'}`}
+                      className={`break-all ${crackedHash ? 'text-green-400' : 'text-gray-400'}`}
                     >
                       {hash}
                       {crackedHash && (
