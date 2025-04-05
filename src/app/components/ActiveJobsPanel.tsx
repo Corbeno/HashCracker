@@ -5,6 +5,7 @@ import { useState } from 'react';
 
 import DebugPanel from '@/app/components/DebugPanel';
 import JobProgressBar from '@/app/components/JobProgressBar';
+import ShowMoreButton from '@/app/components/ShowMoreButton';
 import { compareHashes } from '@/utils/clientHashUtils';
 import { CrackedHash } from '@/utils/hashUtils';
 import { HashJob } from '@/utils/jobQueue';
@@ -65,6 +66,9 @@ export default function ActiveJobsPanel({
   copyNonCrackedHashesToInput,
 }: ActiveJobsPanelProps) {
   const [error, setError] = useState<string | null>(null);
+  const [expandedHashes, setExpandedHashes] = useState<Set<string>>(new Set());
+  
+  const MAX_VISIBLE_HASHES = 15;
 
   const handleCancelJob = async (jobId: string) => {
     try {
@@ -83,6 +87,18 @@ export default function ActiveJobsPanel({
       console.error('Error cancelling job:', error);
       setError('Failed to cancel job. See console for details.');
     }
+  };
+  
+  const toggleHashesExpansion = (jobId: string) => {
+    setExpandedHashes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(jobId)) {
+        newSet.delete(jobId);
+      } else {
+        newSet.add(jobId);
+      }
+      return newSet;
+    });
   };
 
   return (
@@ -148,30 +164,42 @@ export default function ActiveJobsPanel({
             </div>
 
             <div className="font-mono text-sm space-y-1">
-              {job.hashes.map((hash, i) => {
-                // Use the job's isCaseSensitive property if available, otherwise default to true
-                const isCaseSensitive = job.isCaseSensitive !== undefined ? job.isCaseSensitive : true;
-                
-                // Check if this hash has been cracked, considering case sensitivity
-                const crackedHash = crackedHashes.find(ch => 
-                  compareHashes(ch.hash, hash, isCaseSensitive)
-                );
-                
-                return (
-                  <div
-                    key={i}
-                    className={`truncate ${crackedHash ? 'text-green-400' : 'text-gray-400'}`}
-                  >
-                    {hash}
-                    {crackedHash && (
-                      <span>
-                        <span className="text-gray-500 mx-1">-&gt;</span>
-                        <span className="text-white">{crackedHash.password}</span>
-                      </span>
-                    )}
-                  </div>
-                );
-              })}
+              {job.hashes
+                .slice(0, expandedHashes.has(job.id) ? undefined : MAX_VISIBLE_HASHES)
+                .map((hash, i) => {
+                  // Use the job's isCaseSensitive property if available, otherwise default to true
+                  const isCaseSensitive = job.isCaseSensitive !== undefined ? job.isCaseSensitive : true;
+                  
+                  // Check if this hash has been cracked, considering case sensitivity
+                  const crackedHash = crackedHashes.find(ch => 
+                    compareHashes(ch.hash, hash, isCaseSensitive)
+                  );
+                  
+                  return (
+                    <div
+                      key={i}
+                      className={`truncate ${crackedHash ? 'text-green-400' : 'text-gray-400'}`}
+                    >
+                      {hash}
+                      {crackedHash && (
+                        <span>
+                          <span className="text-gray-500 mx-1">-&gt;</span>
+                          <span className="text-white">{crackedHash.password}</span>
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              
+              {job.hashes.length > MAX_VISIBLE_HASHES && (
+                <ShowMoreButton
+                  expanded={expandedHashes.has(job.id)}
+                  toggleExpanded={() => toggleHashesExpansion(job.id)}
+                  totalCount={job.hashes.length}
+                  visibleCount={expandedHashes.has(job.id) ? job.hashes.length : MAX_VISIBLE_HASHES}
+                  itemName="hashes"
+                />
+              )}
             </div>
 
             {expandedJob?.id === job.id && job.debugInfo && <DebugPanel job={job} />}
