@@ -220,6 +220,16 @@ export default function YoinkHashesModal({ isOpen, onClose, onUseHashes }: Yoink
     navigator.clipboard.writeText(hashesOnly);
   };
 
+  const handleCopyAllToClipboard = () => {
+    // Copy both hashes and passwords (if available)
+    const allContent = displayHashes.map(item => {
+      return item.password !== undefined
+        ? `${item.hash} → ${item.password}`
+        : item.hash;
+    }).join('\n');
+    navigator.clipboard.writeText(allContent);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -346,11 +356,18 @@ export default function YoinkHashesModal({ isOpen, onClose, onUseHashes }: Yoink
             Use Uncracked Hashes
           </button>
           <button
+            onClick={handleCopyAllToClipboard}
+            disabled={!outputText}
+            className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            Copy all
+          </button>
+          <button
             onClick={handleCopyToClipboard}
             disabled={!outputText}
             className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            Copy to Clipboard
+            Copy hashes
           </button>
           <button
             onClick={onClose}

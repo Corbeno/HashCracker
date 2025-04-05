@@ -111,8 +111,8 @@ export default function ActiveJobsPanel({
             key={job.id}
             className="p-4 rounded-xl bg-gray-900/50 border border-gray-700 relative overflow-hidden"
           >
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center space-x-3">
+            <div className="flex flex-wrap items-center justify-between mb-2 gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <span className={`font-medium ${getStatusColor(job.status)}`}>
                   {getStatusText(job.status)}
                 </span>
@@ -122,7 +122,7 @@ export default function ActiveJobsPanel({
                 {/* Copy buttons with tooltips */}
                 <button
                   onClick={() => copyAllHashesToInput(job.hashes)}
-                  className="text-blue-400 hover:text-blue-300 transition-colors ml-2 p-1.5 rounded-md hover:bg-gray-700/50"
+                  className="text-blue-400 hover:text-blue-300 transition-colors p-1.5 rounded-md hover:bg-gray-700/50"
                   title="Replace input with all uncracked hashes"
                 >
                   <Image
@@ -145,7 +145,7 @@ export default function ActiveJobsPanel({
                   />
                 </button>
               </div>
-              <div className="flex gap-2 text-xs">
+              <div className="flex flex-wrap gap-2 text-xs">
                 <span className="px-2 py-1 rounded bg-gray-700 text-gray-300">
                   Type: {job.type.name}
                 </span>
@@ -155,7 +155,7 @@ export default function ActiveJobsPanel({
                 {(job.status === 'running' || job.status === 'pending') && (
                   <button
                     onClick={() => handleCancelJob(job.id)}
-                    className="text-red-400 hover:text-red-300 transition-colors ml-2"
+                    className="text-red-400 hover:text-red-300 transition-colors"
                   >
                     Cancel
                   </button>
@@ -163,7 +163,7 @@ export default function ActiveJobsPanel({
               </div>
             </div>
 
-            <div className="font-mono text-sm space-y-1">
+            <div className="font-mono text-sm space-y-1 mt-3">
               {job.hashes
                 .slice(0, expandedHashes.has(job.id) ? undefined : MAX_VISIBLE_HASHES)
                 .map((hash, i) => {
@@ -178,7 +178,7 @@ export default function ActiveJobsPanel({
                   return (
                     <div
                       key={i}
-                      className={`break-all ${crackedHash ? 'text-green-400' : 'text-gray-400'}`}
+                      className={`break-all py-1 ${crackedHash ? 'text-green-400' : 'text-gray-400'}`}
                     >
                       {hash}
                       {crackedHash && (
