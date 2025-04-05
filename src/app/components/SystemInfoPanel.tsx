@@ -13,7 +13,11 @@ interface SystemInfo {
   ramUsage: number;
 }
 
-export default function SystemInfoPanel() {
+interface SystemInfoPanelProps {
+  className?: string;
+}
+
+export default function SystemInfoPanel({ className = '' }: SystemInfoPanelProps) {
   const [systemInfo, setSystemInfo] = useState<SystemInfo>({
     cpuName: 'Loading...',
     cpuUsage: 0,
@@ -79,7 +83,7 @@ export default function SystemInfoPanel() {
   }
 
   return (
-    <div className="flex items-center space-x-4">
+    <div className={`${className} md:flex md:items-center md:space-x-4 grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-0`}>
       {/* CPU Info - Blue */}
       <div className="flex items-center space-x-1" title={`CPU: ${systemInfo.cpuName}`}>
         <Image src="/icons/cpu.svg" alt="CPU" width={16} height={16} />
