@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 
 import config from '@/config';
+import { isHashTypeCaseSensitive } from '@/config/hashTypes';
 import { HashJob, jobQueue } from '@/utils/jobQueue';
 import { logger } from '@/utils/logger';
 
@@ -38,12 +39,13 @@ export async function POST(req: NextRequest) {
     // Create a new job
     const job: HashJob = {
       id: crypto.randomUUID(),
-      hashes: hashes.map(hash => hash.toLowerCase()),
+      hashes: hashes,
       type: hashType,
       mode: attackMode,
       status: 'pending',
       startTime: new Date().toISOString(),
       results: [],
+      isCaseSensitive: isHashTypeCaseSensitive(hashType)
     };
 
     // Add job to queue

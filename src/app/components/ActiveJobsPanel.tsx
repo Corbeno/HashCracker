@@ -5,6 +5,7 @@ import { useState } from 'react';
 
 import DebugPanel from '@/app/components/DebugPanel';
 import JobProgressBar from '@/app/components/JobProgressBar';
+import { compareHashes } from '@/utils/clientHashUtils';
 import { CrackedHash } from '@/utils/hashUtils';
 import { HashJob } from '@/utils/jobQueue';
 
@@ -148,8 +149,14 @@ export default function ActiveJobsPanel({
 
             <div className="font-mono text-sm space-y-1">
               {job.hashes.map((hash, i) => {
-                // Check if this hash has been cracked
-                const crackedHash = crackedHashes.find(ch => ch.hash === hash);
+                // Use the job's isCaseSensitive property if available, otherwise default to true
+                const isCaseSensitive = job.isCaseSensitive !== undefined ? job.isCaseSensitive : true;
+                
+                // Check if this hash has been cracked, considering case sensitivity
+                const crackedHash = crackedHashes.find(ch => 
+                  compareHashes(ch.hash, hash, isCaseSensitive)
+                );
+                
                 return (
                   <div
                     key={i}

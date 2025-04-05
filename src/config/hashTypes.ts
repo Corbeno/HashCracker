@@ -6,10 +6,26 @@ export interface HashType {
   name: string;
   category?: string;
   regex: string;
+  isCaseSensitive?: boolean;
 }
 
 export interface HashTypes {
   [key: string]: HashType;
+}
+
+/**
+ * Determines if a hash type is case-sensitive
+ * Most hash types using hexadecimal characters are case-insensitive
+ */
+export function isHashTypeCaseSensitive(hashType: HashType): boolean {
+  // If explicitly set, use that value
+  if (typeof hashType.isCaseSensitive === 'boolean') {
+    return hashType.isCaseSensitive;
+  }
+  
+  // Otherwise determine by regex pattern
+  // If regex contains hex character class, it's likely case-insensitive
+  return !hashType.regex.includes('a-fA-F0-9');
 }
 
 const hashTypes: HashTypes = {

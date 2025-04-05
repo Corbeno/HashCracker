@@ -36,6 +36,7 @@ export interface HashJob {
   endTime?: string;
   results?: HashResult[];
   debugInfo?: DebugInfo;
+  isCaseSensitive?: boolean; // Whether the hash type is case-sensitive
 }
 
 // Declare the global variable for Next.js hot reloading

@@ -2,14 +2,26 @@
 
 import { debounce } from 'lodash';
 import Image from 'next/image';
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
-import SearchableDropdown, { DropdownOption } from '@/app/components/SearchableDropdown';
+import { compareHashes } from '@/utils/clientHashUtils';
+import SearchableDropdown, { DropdownOption } from './SearchableDropdown';
 
 interface YoinkHashesModalProps {
   isOpen: boolean;
   onClose: () => void;
   onUseHashes?: (hashes: string, hashTypeId: number) => void;
+}
+
+interface HashTypeOption {
+  id: number;
+  name: string;
+  description: string;
+}
+
+interface CrackedHashData {
+  password: string;
+  isCaseSensitive: boolean;
 }
 
 // Keep track of the last selected hash type outside the component to persist it
@@ -19,16 +31,16 @@ export default function YoinkHashesModal({ isOpen, onClose, onUseHashes }: Yoink
   const [inputText, setInputText] = useState('');
   const [outputText, setOutputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [hashTypeOptions, setHashTypeOptions] = useState<DropdownOption[]>([]);
-  const [selectedHashType, setSelectedHashType] = useState<number | null>(lastSelectedHashType);
+  const [hashTypeOptions, setHashTypeOptions] = useState<HashTypeOption[]>([]);
+  const [selectedHashType, setSelectedHashType] = useState<number | null>(null);
   const [isLoadingHashTypes, setIsLoadingHashTypes] = useState(false);
   const [extractionResult, setExtractionResult] = useState<{
-    hashType?: { id: number; name: string };
+    hashType?: string;
     count?: number;
     error?: string;
   }>({});
-  const [crackedHashes, setCrackedHashes] = useState<Record<string, string>>({});
-  const [displayHashes, setDisplayHashes] = useState<Array<{ hash: string; password?: string }>>(
+  const [crackedHashes, setCrackedHashes] = useState<Record<string, CrackedHashData>>({});
+  const [displayHashes, setDisplayHashes] = useState<Array<{ hash: string; password?: string; isCaseSensitive: boolean }>>(
     []
   );
 
@@ -145,10 +157,32 @@ export default function YoinkHashesModal({ isOpen, onClose, onUseHashes }: Yoink
     if (outputText) {
       const hashes = outputText.split('\n').filter(hash => hash.trim() !== '');
       const newDisplayHashes = hashes.map(hash => {
-        const password: string | undefined = crackedHashes[hash];
+        // Handle case-sensitivity when comparing hashes
+        let matchedHash = hash;
+        let password: string | undefined = undefined;
+        let isCaseSensitive = false;
+        
+        // First try direct lookup
+        if (crackedHashes[hash]) {
+          matchedHash = hash;
+          password = crackedHashes[hash].password;
+          isCaseSensitive = crackedHashes[hash].isCaseSensitive;
+        } else {
+          // If not found, try case-insensitive lookup for non-case-sensitive hashes
+          const matchedEntry = Object.entries(crackedHashes).find(([crackedHash, data]) => {
+            // Only do case-insensitive comparison for hashes that are not case-sensitive
+            return compareHashes(crackedHash, hash, data.isCaseSensitive);
+          });
+          
+          if (matchedEntry) {
+            [matchedHash, { password, isCaseSensitive }] = matchedEntry;
+          }
+        }
+        
         return {
           hash,
           password,
+          isCaseSensitive
         };
       });
       setDisplayHashes(newDisplayHashes);

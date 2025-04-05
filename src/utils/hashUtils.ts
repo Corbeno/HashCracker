@@ -1,8 +1,8 @@
-import { spawn } from 'child_process';
 import * as child_process from 'child_process';
+import { spawn } from 'child_process';
 import EventEmitter from 'events';
-import * as fsSync from 'fs';
 import * as fs from 'fs';
+import * as fsSync from 'fs';
 import * as os from 'os';
 import path from 'path';
 import readline from 'readline';
@@ -17,6 +17,7 @@ import { HashType } from '@/config/hashTypes';
 export interface CrackedHash {
   hash: string;
   password: string;
+  isCaseSensitive?: boolean;
 }
 
 export interface HashcatStatusJson {
@@ -85,7 +86,7 @@ function findInCrackedFileOrPotfile(hashes: string[]): CrackedHash[] {
   const crackedFile = path.join(config.hashcat.dirs.hashes, 'cracked.txt');
   const potfilePath =
     config.hashcat.potfilePath || path.join(config.hashcat.dirs.hashes, 'hashcat.potfile');
-  const hashesSet = new Set(hashes.map(h => h.toLowerCase()));
+  const hashesSet = new Set(hashes);
 
   if (!fsSync.existsSync(crackedFile) && !fsSync.existsSync(potfilePath)) {
     return [];
@@ -113,14 +114,35 @@ function findInCrackedFileOrPotfile(hashes: string[]): CrackedHash[] {
         }),
     ];
 
-    // Filter results and remove duplicates
-    const filteredResults = results.filter(r => hashesSet.has(r.hash.toLowerCase()));
-    // Remove duplicates by creating a Map keyed by hash
-    const uniqueResults = Array.from(
-      new Map(filteredResults.map(item => [item.hash.toLowerCase(), item])).values()
+    // Filter results by hash, but handle case sensitivity properly
+    const filteredResults = results.filter(r => 
+      // Check exact match first
+      hashesSet.has(r.hash) || 
+      // Check case-insensitive match for compatibility with hashcat output
+      hashes.some(h => h.toLowerCase() === r.hash.toLowerCase())
     );
+    
+    // Remove duplicates while preserving case of original input hashes
+    const uniqueResults = new Map();
+    for (const result of filteredResults) {
+      const lowerHash = result.hash.toLowerCase();
+      
+      // If we already have this hash, prefer the one that matches the case of the input
+      if (uniqueResults.has(lowerHash)) {
+        const existingResult = uniqueResults.get(lowerHash);
+        const exactMatchExists = hashes.includes(existingResult.hash);
+        const thisExactMatch = hashes.includes(result.hash);
+        
+        // If this result is an exact case match to input and the existing one isn't, replace it
+        if (thisExactMatch && !exactMatchExists) {
+          uniqueResults.set(lowerHash, result);
+        }
+      } else {
+        uniqueResults.set(lowerHash, result);
+      }
+    }
 
-    return uniqueResults;
+    return Array.from(uniqueResults.values());
   } catch (error) {
     logger.error('Error reading cracked file:', error);
     return [];
@@ -142,6 +164,7 @@ function addHashesToCrackedFile(crackedHashes: CrackedHash[]): void {
 export interface HashResult {
   hash: string;
   password: string | null;
+  isCaseSensitive?: boolean;
 }
 
 export interface CrackResult {
@@ -155,10 +178,24 @@ export class HashCracker extends EventEmitter {
     if (!config.hashcat.path) {
       throw new Error('Hashcat path not configured. Please set HASHCAT_PATH in .env');
     }
-    //TODO ideally want to get rid of this and just let hashcat figure it out
+    
+    // Determine if this hash type is case-sensitive (all hex hashes are not case-sensitive)
+    const isCaseSensitive = !type.regex.includes('a-fA-F0-9');
+    
     // Check if hashes are already cracked
     const existingResults = findInCrackedFileOrPotfile(hashes);
-    const hashesToCrack = hashes.filter(h => !existingResults.some(r => r.hash === h));
+    
+    // Add case sensitivity information to the results
+    existingResults.forEach(result => {
+      result.isCaseSensitive = isCaseSensitive;
+    });
+    
+    // Find hashes that need to be cracked (not already in results)
+    // Use case-insensitive comparison for compatibility, but preserve original case
+    const hashesToCrack = hashes.filter(h => 
+      !existingResults.some(r => r.hash.toLowerCase() === h.toLowerCase())
+    );
+    
     if (existingResults.length === hashes.length) {
       // Add hashes that aren't there already to cracked.txt manually
       addHashesToCrackedFile(existingResults);
@@ -176,9 +213,6 @@ export class HashCracker extends EventEmitter {
         },
       } as CrackResult;
     }
-    // Replace with this?
-    // const hashesToCrack = hashes;
-    // const existingResults = findInCrackedFileOrPotfile(hashes);
 
     const hashcatPath = config.hashcat.path;
     const hashcatDir = path.dirname(hashcatPath);
@@ -365,11 +399,11 @@ export class HashCracker extends EventEmitter {
           .filter(Boolean)
           .map(line => {
             const [crackedHash, password] = line.split(':');
-            return { hash: crackedHash, password };
+            return { hash: crackedHash, password, isCaseSensitive };
           });
 
         const crackedResults = results.filter(result =>
-          hashesToCrack.includes(result.hash.toLowerCase())
+          hashesToCrack.some(h => h.toLowerCase() === result.hash.toLowerCase())
         );
         if (code !== 0 && code !== 1) {
           reject(new Error(`Hashcat process exited with unexpected code ${code}`));
@@ -654,5 +688,20 @@ export async function readPotfile(): Promise<string> {
   } catch (error) {
     logger.error(`Error reading potfile: ${error}`);
     return '';
+  }
+}
+
+/**
+ * Compares two hashes, respecting the case-sensitivity setting
+ * @param hash1 First hash to compare
+ * @param hash2 Second hash to compare
+ * @param isCaseSensitive Whether the hash comparison should be case-sensitive
+ * @returns Boolean indicating if the hashes are equivalent
+ */
+export function compareHashes(hash1: string, hash2: string, isCaseSensitive: boolean): boolean {
+  if (isCaseSensitive) {
+    return hash1 === hash2;
+  } else {
+    return hash1.toLowerCase() === hash2.toLowerCase();
   }
 }
