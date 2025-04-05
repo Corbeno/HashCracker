@@ -37,7 +37,7 @@ const getStatusText = (status: string) => {
       return 'Failed';
     case 'running':
       return 'Running';
-    case 'queued':
+    case 'pending':
       return 'Queued';
     case 'cancelled':
       return 'Cancelled';
@@ -152,7 +152,7 @@ export default function ActiveJobsPanel({
                 <span className="px-2 py-1 rounded bg-gray-700 text-gray-300">
                   Mode: {job.mode.name}
                 </span>
-                {job.status === 'running' && (
+                {(job.status === 'running' || job.status === 'pending') && (
                   <button
                     onClick={() => handleCancelJob(job.id)}
                     className="text-red-400 hover:text-red-300 transition-colors ml-2"

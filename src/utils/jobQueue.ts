@@ -15,7 +15,6 @@ export type JobStatus =
   | 'running'
   | 'completed'
   | 'failed'
-  | 'queued'
   | 'cancelled'
   | 'exhausted';
 
@@ -98,6 +97,28 @@ export class JobQueue {
       this.currentJob = null;
 
       this.processNextJob();
+      sendJobsToAll();
+      return true;
+    }
+    return false;
+  }
+
+  cancelQueuedJob(jobId: string): boolean {
+    const jobIndex = this.queue.findIndex(job => job.id === jobId);
+    if (jobIndex >= 0) {
+      // Get the job from the queue
+      const job = this.queue[jobIndex];
+      
+      // Remove it from the queue
+      this.queue.splice(jobIndex, 1);
+      
+      // Mark it as cancelled and set end time
+      job.status = 'cancelled';
+      job.endTime = new Date().toISOString();
+      
+      // Don't add to history - just delete completely
+      
+      // Notify all clients of the job change
       sendJobsToAll();
       return true;
     }

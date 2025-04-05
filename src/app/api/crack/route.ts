@@ -73,7 +73,7 @@ export async function DELETE(req: NextRequest) {
 
     const activeJob = jobQueue.getCurrentJob();
     if (activeJob && activeJob.id === jobId) {
-      // Cancel the job
+      // Cancel the currently running job
       const success = await jobQueue.cancelCurrentJob();
       if (success) {
         return NextResponse.json({ success, message: 'Job cancelled' });
@@ -81,7 +81,13 @@ export async function DELETE(req: NextRequest) {
         return NextResponse.json({ error: 'Failed to cancel job' }, { status: 500 });
       }
     } else {
-      return NextResponse.json({ error: 'Job not found or already completed' }, { status: 404 });
+      // Check if this is a queued job and cancel it
+      const success = jobQueue.cancelQueuedJob(jobId);
+      if (success) {
+        return NextResponse.json({ success, message: 'Queued job cancelled' });
+      } else {
+        return NextResponse.json({ error: 'Job not found or already completed' }, { status: 404 });
+      }
     }
   } catch (error) {
     logger.error('Error cancelling job:', error);
