@@ -230,6 +230,7 @@ export class HashCracker extends EventEmitter {
 
     // Build base command
     let args = [
+      '-O',
       '-m',
       type.id.toString(),
       '-a',
