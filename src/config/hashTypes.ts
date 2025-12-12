@@ -22,7 +22,7 @@ export function isHashTypeCaseSensitive(hashType: HashType): boolean {
   if (typeof hashType.isCaseSensitive === 'boolean') {
     return hashType.isCaseSensitive;
   }
-  
+
   // Otherwise determine by regex pattern
   // If regex contains hex character class, it's likely case-insensitive
   return !hashType.regex.includes('a-fA-F0-9');

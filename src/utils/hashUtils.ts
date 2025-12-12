@@ -115,24 +115,25 @@ function findInCrackedFileOrPotfile(hashes: string[]): CrackedHash[] {
     ];
 
     // Filter results by hash, but handle case sensitivity properly
-    const filteredResults = results.filter(r => 
-      // Check exact match first
-      hashesSet.has(r.hash) || 
-      // Check case-insensitive match for compatibility with hashcat output
-      hashes.some(h => h.toLowerCase() === r.hash.toLowerCase())
+    const filteredResults = results.filter(
+      r =>
+        // Check exact match first
+        hashesSet.has(r.hash) ||
+        // Check case-insensitive match for compatibility with hashcat output
+        hashes.some(h => h.toLowerCase() === r.hash.toLowerCase())
     );
-    
+
     // Remove duplicates while preserving case of original input hashes
     const uniqueResults = new Map();
     for (const result of filteredResults) {
       const lowerHash = result.hash.toLowerCase();
-      
+
       // If we already have this hash, prefer the one that matches the case of the input
       if (uniqueResults.has(lowerHash)) {
         const existingResult = uniqueResults.get(lowerHash);
         const exactMatchExists = hashes.includes(existingResult.hash);
         const thisExactMatch = hashes.includes(result.hash);
-        
+
         // If this result is an exact case match to input and the existing one isn't, replace it
         if (thisExactMatch && !exactMatchExists) {
           uniqueResults.set(lowerHash, result);
@@ -178,24 +179,24 @@ export class HashCracker extends EventEmitter {
     if (!config.hashcat.path) {
       throw new Error('Hashcat path not configured. Please set HASHCAT_PATH in .env');
     }
-    
+
     // Determine if this hash type is case-sensitive (all hex hashes are not case-sensitive)
     const isCaseSensitive = !type.regex.includes('a-fA-F0-9');
-    
+
     // Check if hashes are already cracked
     const existingResults = findInCrackedFileOrPotfile(hashes);
-    
+
     // Add case sensitivity information to the results
     existingResults.forEach(result => {
       result.isCaseSensitive = isCaseSensitive;
     });
-    
+
     // Find hashes that need to be cracked (not already in results)
     // Use case-insensitive comparison for compatibility, but preserve original case
-    const hashesToCrack = hashes.filter(h => 
-      !existingResults.some(r => r.hash.toLowerCase() === h.toLowerCase())
+    const hashesToCrack = hashes.filter(
+      h => !existingResults.some(r => r.hash.toLowerCase() === h.toLowerCase())
     );
-    
+
     if (existingResults.length === hashes.length) {
       // Add hashes that aren't there already to cracked.txt manually
       addHashesToCrackedFile(existingResults);

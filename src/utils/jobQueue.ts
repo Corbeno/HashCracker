@@ -10,13 +10,7 @@ import { HashType } from '@/config/hashTypes';
 
 const execAsync = promisify(exec);
 
-export type JobStatus =
-  | 'pending'
-  | 'running'
-  | 'completed'
-  | 'failed'
-  | 'cancelled'
-  | 'exhausted';
+export type JobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled' | 'exhausted';
 
 export interface DebugInfo {
   command: string;
@@ -50,7 +44,7 @@ export class JobQueue {
   private currentJob: HashJob | null = null;
   private maxHistorySize: number = 50; // Limit history to 50 jobs
 
-  async addJob(job: HashJob) {
+  async addJob(job: HashJob): Promise<{ isQueued: boolean }> {
     if (this.isProcessing) {
       this.queue.push(job);
       sendJobsToAll();
@@ -108,16 +102,16 @@ export class JobQueue {
     if (jobIndex >= 0) {
       // Get the job from the queue
       const job = this.queue[jobIndex];
-      
+
       // Remove it from the queue
       this.queue.splice(jobIndex, 1);
-      
+
       // Mark it as cancelled and set end time
       job.status = 'cancelled';
       job.endTime = new Date().toISOString();
-      
+
       // Don't add to history - just delete completely
-      
+
       // Notify all clients of the job change
       sendJobsToAll();
       return true;
@@ -132,12 +126,12 @@ export class JobQueue {
       } else {
         await execAsync('pkill -f hashcat');
       }
-    } catch (_error) {
+    } catch {
       // Ignore errors if no processes were found
     }
   }
 
-  private completeCurrentJob() {
+  private completeCurrentJob(): void {
     if (this.currentJob) {
       this.currentJob.endTime = new Date().toISOString();
 
@@ -150,7 +144,8 @@ export class JobQueue {
     }
   }
 
-  private failCurrentJob(error: any) {
+  private failCurrentJob(error: unknown): void {
+    logger.error('Job failed:', error);
     if (this.currentJob) {
       this.currentJob.endTime = new Date().toISOString();
 
@@ -162,7 +157,7 @@ export class JobQueue {
     this.processNextJob();
   }
 
-  private async startJob(job: HashJob) {
+  private async startJob(job: HashJob): Promise<void> {
     // Kill any existing hashcat processes
     await this.killAnyHashcat();
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -190,16 +185,17 @@ export class JobQueue {
         this.completeCurrentJob();
         sendJobsToAll();
       })
-      .catch(error => {
+      .catch((error: unknown) => {
         job.status = 'failed';
         job.results = job.hashes.map(hash => ({ hash, password: null }));
-        this.failCurrentJob(error.message);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        this.failCurrentJob(errorMessage);
         sendJobsToAll();
       });
   }
 
   // Helper method to add a job to history with size limit
-  private addToHistory(job: HashJob) {
+  private addToHistory(job: HashJob): void {
     // Set end time if not already set
     if (!job.endTime) {
       job.endTime = new Date().toISOString();
@@ -214,7 +210,7 @@ export class JobQueue {
     }
   }
 
-  private processNextJob() {
+  private processNextJob(): void {
     if (this.queue.length > 0 && !this.isProcessing) {
       const nextJob = this.queue.shift();
       if (nextJob) {

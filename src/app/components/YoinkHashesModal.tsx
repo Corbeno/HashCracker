@@ -40,9 +40,9 @@ export default function YoinkHashesModal({ isOpen, onClose, onUseHashes }: Yoink
     error?: string;
   }>({});
   const [crackedHashes, setCrackedHashes] = useState<Record<string, CrackedHashData>>({});
-  const [displayHashes, setDisplayHashes] = useState<Array<{ hash: string; password?: string; isCaseSensitive: boolean }>>(
-    []
-  );
+  const [displayHashes, setDisplayHashes] = useState<
+    Array<{ hash: string; password?: string; isCaseSensitive: boolean }>
+  >([]);
 
   // Fetch hash types with regex patterns
   useEffect(() => {
@@ -161,7 +161,7 @@ export default function YoinkHashesModal({ isOpen, onClose, onUseHashes }: Yoink
         let matchedHash = hash;
         let password: string | undefined = undefined;
         let isCaseSensitive = false;
-        
+
         // First try direct lookup
         if (crackedHashes[hash]) {
           matchedHash = hash;
@@ -173,16 +173,16 @@ export default function YoinkHashesModal({ isOpen, onClose, onUseHashes }: Yoink
             // Only do case-insensitive comparison for hashes that are not case-sensitive
             return compareHashes(crackedHash, hash, data.isCaseSensitive);
           });
-          
+
           if (matchedEntry) {
             [matchedHash, { password, isCaseSensitive }] = matchedEntry;
           }
         }
-        
+
         return {
           hash,
           password,
-          isCaseSensitive
+          isCaseSensitive,
         };
       });
       setDisplayHashes(newDisplayHashes);
@@ -222,11 +222,11 @@ export default function YoinkHashesModal({ isOpen, onClose, onUseHashes }: Yoink
 
   const handleCopyAllToClipboard = () => {
     // Copy both hashes and passwords (if available)
-    const allContent = displayHashes.map(item => {
-      return item.password !== undefined
-        ? `${item.hash} → ${item.password}`
-        : item.hash;
-    }).join('\n');
+    const allContent = displayHashes
+      .map(item => {
+        return item.password !== undefined ? `${item.hash} → ${item.password}` : item.hash;
+      })
+      .join('\n');
     navigator.clipboard.writeText(allContent);
   };
 

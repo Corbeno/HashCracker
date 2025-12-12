@@ -44,19 +44,20 @@ export default function BenchmarkModal({ isOpen, onClose }: BenchmarkModalProps)
   const runBenchmark = async () => {
     setIsLoading(true);
     setError(null);
-    
+
     try {
-      const url = selectedHashType !== null 
-        ? `/api/benchmark?hashType=${selectedHashType}` 
-        : '/api/benchmark';
-        
+      const url =
+        selectedHashType !== null
+          ? `/api/benchmark?hashType=${selectedHashType}`
+          : '/api/benchmark';
+
       const response = await fetch(url);
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || 'Failed to run benchmark');
       }
-      
+
       setResults(data.results);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'An unknown error occurred');
@@ -144,9 +145,7 @@ export default function BenchmarkModal({ isOpen, onClose }: BenchmarkModalProps)
                 {results.length === 0 ? (
                   <tr className="border-b border-gray-700">
                     <td colSpan={2} className="px-6 py-4 text-center text-gray-400">
-                      {isLoading
-                        ? 'Running benchmark...'
-                        : 'Run a benchmark to see results'}
+                      {isLoading ? 'Running benchmark...' : 'Run a benchmark to see results'}
                     </td>
                   </tr>
                 ) : (
@@ -186,4 +185,4 @@ export default function BenchmarkModal({ isOpen, onClose }: BenchmarkModalProps)
       </div>
     </div>
   );
-} 
+}

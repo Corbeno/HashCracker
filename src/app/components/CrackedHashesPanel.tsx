@@ -16,7 +16,7 @@ export default function CrackedHashesPanel({
 }: CrackedHashesPanelProps) {
   const [expanded, setExpanded] = useState(false);
   const MAX_VISIBLE_HASHES = 15;
-  
+
   const visibleHashes = expanded ? crackedHashes : crackedHashes.slice(0, MAX_VISIBLE_HASHES);
 
   return (
@@ -36,7 +36,7 @@ export default function CrackedHashesPanel({
             ? visibleHashes.map(result => `${result.hash}:${result.password}`).join('\n')
             : 'No cracked hashes yet'}
         </pre>
-        
+
         {crackedHashes.length > MAX_VISIBLE_HASHES && (
           <ShowMoreButton
             expanded={expanded}

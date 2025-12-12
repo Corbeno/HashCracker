@@ -67,7 +67,7 @@ export default function ActiveJobsPanel({
 }: ActiveJobsPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const [expandedHashes, setExpandedHashes] = useState<Set<string>>(new Set());
-  
+
   const MAX_VISIBLE_HASHES = 15;
 
   const handleCancelJob = async (jobId: string) => {
@@ -88,7 +88,7 @@ export default function ActiveJobsPanel({
       setError('Failed to cancel job. See console for details.');
     }
   };
-  
+
   const toggleHashesExpansion = (jobId: string) => {
     setExpandedHashes(prev => {
       const newSet = new Set(prev);
@@ -169,12 +169,12 @@ export default function ActiveJobsPanel({
                 .map((hash, i) => {
                   // Default to true for case sensitivity if property doesn't exist
                   const isCaseSensitive = true;
-                  
+
                   // Check if this hash has been cracked, considering case sensitivity
-                  const crackedHash = crackedHashes.find(ch => 
+                  const crackedHash = crackedHashes.find(ch =>
                     compareHashes(ch.hash, hash, isCaseSensitive)
                   );
-                  
+
                   return (
                     <div
                       key={i}
@@ -190,7 +190,7 @@ export default function ActiveJobsPanel({
                     </div>
                   );
                 })}
-              
+
               {job.hashes.length > MAX_VISIBLE_HASHES && (
                 <ShowMoreButton
                   expanded={expandedHashes.has(job.id)}

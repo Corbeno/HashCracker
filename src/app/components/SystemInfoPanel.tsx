@@ -83,7 +83,9 @@ export default function SystemInfoPanel({ className = '' }: SystemInfoPanelProps
   }
 
   return (
-    <div className={`${className} md:flex md:items-center md:space-x-4 grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-0`}>
+    <div
+      className={`${className} md:flex md:items-center md:space-x-4 grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-0`}
+    >
       {/* CPU Info - Blue */}
       <div className="flex items-center space-x-1" title={`CPU: ${systemInfo.cpuName}`}>
         <Image src="/icons/cpu.svg" alt="CPU" width={16} height={16} />

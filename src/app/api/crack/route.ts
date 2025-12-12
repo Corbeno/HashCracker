@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
       status: 'pending',
       startTime: new Date().toISOString(),
       results: [],
-      isCaseSensitive: isHashTypeCaseSensitive(hashType)
+      isCaseSensitive: isHashTypeCaseSensitive(hashType),
     };
 
     // Add job to queue

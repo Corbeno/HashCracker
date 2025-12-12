@@ -10,6 +10,7 @@ import HashInputForm from '@/app/components/HashInputForm';
 import PotfileModal from '@/app/components/PotfileModal';
 import YoinkHashesModal from '@/app/components/YoinkHashesModal';
 import useConnection from '@/hooks/useConnection';
+import useHashManagement from '@/hooks/useHashManagement';
 import { Job } from '@/types/job';
 
 export default function Home() {
@@ -24,28 +25,11 @@ export default function Home() {
   const { connectedStatus, jobs, crackedHashes, liveViewingEnabled, toggleLiveViewing } =
     useConnection();
 
-  // Copy all uncracked hashes from a job to the input field (replacing current input)
-  const copyAllHashesToInput = (hashes: string[]) => {
-    // Filter out hashes that have been cracked
-    const nonCrackedHashes = hashes.filter(
-      hash => !crackedHashes.some(crackedHash => crackedHash.hash === hash)
-    );
-    setHashInput(nonCrackedHashes.join('\n'));
-  };
-
-  // Append only non-cracked hashes from a job to the input field
-  const copyNonCrackedHashesToInput = (hashes: string[]) => {
-    // Filter out hashes that have been cracked
-    const nonCrackedHashes = hashes.filter(
-      hash => !crackedHashes.some(crackedHash => crackedHash.hash === hash)
-    );
-
-    // Append to existing input
-    setHashInput(prev => {
-      // If there's already content, add a newline before appending
-      return prev ? `${prev}\n${nonCrackedHashes.join('\n')}` : nonCrackedHashes.join('\n');
-    });
-  };
+  // Use the custom hook for hash management
+  const { copyAllHashesToInput, copyNonCrackedHashesToInput } = useHashManagement({
+    crackedHashes,
+    setHashInput,
+  });
 
   const openPotfileModal = () => {
     setIsPotfileModalOpen(true);
@@ -97,9 +81,9 @@ export default function Home() {
           setHashType(hashTypeId);
         }}
       />
-      <BenchmarkModal 
-        isOpen={isBenchmarkModalOpen} 
-        onClose={() => setIsBenchmarkModalOpen(false)} 
+      <BenchmarkModal
+        isOpen={isBenchmarkModalOpen}
+        onClose={() => setIsBenchmarkModalOpen(false)}
       />
     </main>
   );

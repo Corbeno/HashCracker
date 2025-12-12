@@ -9,11 +9,11 @@ import SystemInfoPanel from '@/app/components/SystemInfoPanel';
 // SVG Icon Components
 function MenuOpenIcon() {
   return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      fill="none" 
-      viewBox="0 0 24 24" 
-      stroke="currentColor" 
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
       className="w-6 h-6"
     >
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -23,49 +23,33 @@ function MenuOpenIcon() {
 
 function MenuClosedIcon() {
   return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      fill="none" 
-      viewBox="0 0 24 24" 
-      stroke="currentColor" 
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
       className="w-6 h-6"
     >
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M4 6h16M4 12h16M4 18h16"
+      />
     </svg>
   );
 }
 
 function EyeOpenIcon() {
-  return (
-    <Image
-      src="/icons/eye-open.svg"
-      alt="Live updates enabled"
-      width={20}
-      height={20}
-    />
-  );
+  return <Image src="/icons/eye-open.svg" alt="Live updates enabled" width={20} height={20} />;
 }
 
 function EyeClosedIcon() {
-  return (
-    <Image
-      src="/icons/eye-closed.svg"
-      alt="Live updates disabled"
-      width={20}
-      height={20}
-    />
-  );
+  return <Image src="/icons/eye-closed.svg" alt="Live updates disabled" width={20} height={20} />;
 }
 
 function GitHubIcon({ width = 24, height = 24 }) {
-  return (
-    <Image 
-      src="/icons/github.svg" 
-      alt="GitHub" 
-      width={width} 
-      height={height} 
-    />
-  );
+  return <Image src="/icons/github.svg" alt="GitHub" width={width} height={height} />;
 }
 
 interface AppHeaderProps {
@@ -138,7 +122,7 @@ export default function AppHeader({
       <div className="md:hidden">
         <div className="flex justify-between items-center">
           <Logo className="hover:opacity-80 transition-opacity" />
-          
+
           <div className="flex items-center gap-2">
             {/* Connection status indicator */}
             <div
@@ -148,17 +132,17 @@ export default function AppHeader({
               }}
             />
             <span className="text-sm text-gray-400 mr-2">{connectedStatus}</span>
-            
+
             {/* Mobile menu toggle */}
-            <button 
-              onClick={() => setMenuOpen(!menuOpen)} 
+            <button
+              onClick={() => setMenuOpen(!menuOpen)}
               className="p-2 rounded-md bg-gray-800 hover:bg-gray-700"
             >
               {menuOpen ? <MenuOpenIcon /> : <MenuClosedIcon />}
             </button>
           </div>
         </div>
-        
+
         {/* Mobile menu */}
         {menuOpen && (
           <div className="mt-4 p-4 bg-gray-900 rounded-md shadow-lg border border-gray-800">
@@ -176,23 +160,18 @@ export default function AppHeader({
                   <span className="ml-2">GitHub</span>
                 </a>
               </div>
-              
+
               {liveViewingEnabled !== null && (
                 <div className="flex items-center">
-                  <button
-                    onClick={toggleLiveViewing}
-                    className="flex items-center gap-2"
-                  >
-                    <div className={`p-1.5 rounded-md transition-colors ${
-                      liveViewingEnabled
-                        ? 'bg-blue-500'
-                        : 'bg-gray-800'
-                    }`}>
+                  <button onClick={toggleLiveViewing} className="flex items-center gap-2">
+                    <div
+                      className={`p-1.5 rounded-md transition-colors ${
+                        liveViewingEnabled ? 'bg-blue-500' : 'bg-gray-800'
+                      }`}
+                    >
                       {liveViewingEnabled ? <EyeOpenIcon /> : <EyeClosedIcon />}
                     </div>
-                    <span>
-                      {liveViewingEnabled ? 'Live Updates: On' : 'Live Updates: Off'}
-                    </span>
+                    <span>{liveViewingEnabled ? 'Live Updates: On' : 'Live Updates: Off'}</span>
                   </button>
                 </div>
               )}

@@ -16,4 +16,4 @@ export function compareHashes(hash1: string, hash2: string, isCaseSensitive: boo
   } else {
     return hash1.toLowerCase() === hash2.toLowerCase();
   }
-} 
+}

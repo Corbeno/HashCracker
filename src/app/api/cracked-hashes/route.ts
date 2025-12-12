@@ -17,7 +17,7 @@ export async function GET() {
     const fileContent = fs.readFileSync(crackedHashesPath, 'utf-8');
     const lines = fileContent.split('\n').filter(line => line.trim() !== '');
 
-    const crackedHashes: Record<string, { password: string, isCaseSensitive: boolean }> = {};
+    const crackedHashes: Record<string, { password: string; isCaseSensitive: boolean }> = {};
 
     for (const line of lines) {
       const [hash, password] = line.split(':');
@@ -25,9 +25,9 @@ export async function GET() {
         // Determine if the hash is case-sensitive by checking if it's a hex hash
         // Most common hash formats use hex characters (0-9, a-f) and are case-insensitive
         const isHexHash = /^[a-fA-F0-9]+$/.test(hash);
-        crackedHashes[hash] = { 
+        crackedHashes[hash] = {
           password: password || '',
-          isCaseSensitive: !isHexHash
+          isCaseSensitive: !isHexHash,
         };
       }
     }
