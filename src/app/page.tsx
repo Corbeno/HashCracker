@@ -4,19 +4,21 @@ import { useState } from 'react';
 
 import ActiveJobsPanel from '@/app/components/ActiveJobsPanel';
 import AppHeader from '@/app/components/AppHeader';
+import BenchmarkModal from '@/app/components/BenchmarkModal';
 import CrackedHashesPanel from '@/app/components/CrackedHashesPanel';
 import HashInputForm from '@/app/components/HashInputForm';
 import PotfileModal from '@/app/components/PotfileModal';
 import YoinkHashesModal from '@/app/components/YoinkHashesModal';
 import useConnection from '@/hooks/useConnection';
-import { HashJob } from '@/utils/jobQueue';
+import { Job } from '@/types/job';
 
 export default function Home() {
-  const [expandedJob, setExpandedJob] = useState<HashJob | null>(null);
+  const [expandedJob, setExpandedJob] = useState<Job | null>(null);
   const [hashInput, setHashInput] = useState('');
   const [hashType, setHashType] = useState<number>(0);
   const [isPotfileModalOpen, setIsPotfileModalOpen] = useState(false);
   const [isYoinkHashesModalOpen, setIsYoinkHashesModalOpen] = useState(false);
+  const [isBenchmarkModalOpen, setIsBenchmarkModalOpen] = useState(false);
 
   // This custom hook handles all data collection on initial load and live updates
   const { connectedStatus, jobs, crackedHashes, liveViewingEnabled, toggleLiveViewing } =
@@ -49,10 +51,14 @@ export default function Home() {
     setIsPotfileModalOpen(true);
   };
 
+  const openBenchmarkModal = () => {
+    setIsBenchmarkModalOpen(true);
+  };
+
   return (
     <main className="container mx-auto px-4 py-8 space-y-8 max-w-4xl min-h-screen">
       <AppHeader
-        connectedStatus={connectedStatus}
+        connectedStatus={connectedStatus as 'connected' | 'disconnected'}
         liveViewingEnabled={liveViewingEnabled}
         toggleLiveViewing={toggleLiveViewing}
       />
@@ -63,6 +69,7 @@ export default function Home() {
         setHashType={setHashType}
         setHashInput={setHashInput}
         openYoinkModal={() => setIsYoinkHashesModalOpen(true)}
+        openBenchmarkModal={openBenchmarkModal}
         onCrackingStart={() => setHashInput('')}
       />
 
@@ -89,6 +96,10 @@ export default function Home() {
           );
           setHashType(hashTypeId);
         }}
+      />
+      <BenchmarkModal 
+        isOpen={isBenchmarkModalOpen} 
+        onClose={() => setIsBenchmarkModalOpen(false)} 
       />
     </main>
   );

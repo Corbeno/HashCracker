@@ -6,9 +6,9 @@ import { useState } from 'react';
 import DebugPanel from '@/app/components/DebugPanel';
 import JobProgressBar from '@/app/components/JobProgressBar';
 import ShowMoreButton from '@/app/components/ShowMoreButton';
+import { Job } from '@/types/job';
 import { compareHashes } from '@/utils/clientHashUtils';
 import { CrackedHash } from '@/utils/hashUtils';
-import { HashJob } from '@/utils/jobQueue';
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -49,10 +49,10 @@ const getStatusText = (status: string) => {
 };
 
 interface ActiveJobsPanelProps {
-  jobs: HashJob[];
+  jobs: Job[];
   crackedHashes: CrackedHash[];
-  expandedJob: HashJob | null;
-  setExpandedJob: (job: HashJob | null) => void;
+  expandedJob: Job | null;
+  setExpandedJob: (job: Job | null) => void;
   copyAllHashesToInput: (hashes: string[]) => void;
   copyNonCrackedHashesToInput: (hashes: string[]) => void;
 }
@@ -167,8 +167,8 @@ export default function ActiveJobsPanel({
               {job.hashes
                 .slice(0, expandedHashes.has(job.id) ? undefined : MAX_VISIBLE_HASHES)
                 .map((hash, i) => {
-                  // Use the job's isCaseSensitive property if available, otherwise default to true
-                  const isCaseSensitive = job.isCaseSensitive !== undefined ? job.isCaseSensitive : true;
+                  // Default to true for case sensitivity if property doesn't exist
+                  const isCaseSensitive = true;
                   
                   // Check if this hash has been cracked, considering case sensitivity
                   const crackedHash = crackedHashes.find(ch => 

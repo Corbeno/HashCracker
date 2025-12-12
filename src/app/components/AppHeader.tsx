@@ -176,6 +176,7 @@ export default function AppHeader({
                   <span className="ml-2">GitHub</span>
                 </a>
               </div>
+              
               {liveViewingEnabled !== null && (
                 <div className="flex items-center">
                   <button

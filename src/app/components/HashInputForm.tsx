@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import React, { useMemo, useState } from 'react';
 
 import SearchableDropdown, { DropdownOption } from '@/app/components/SearchableDropdown';
@@ -11,6 +12,7 @@ interface HashInputFormProps {
   setHashType: (value: number) => void;
   setHashInput: (value: string) => void;
   openYoinkModal: () => void;
+  openBenchmarkModal: () => void;
   onCrackingStart: () => void;
 }
 
@@ -20,6 +22,7 @@ export default function HashInputForm({
   setHashType,
   setHashInput,
   openYoinkModal,
+  openBenchmarkModal,
   onCrackingStart,
 }: HashInputFormProps) {
   const [error, setError] = useState<string | null>(null);
@@ -105,14 +108,25 @@ export default function HashInputForm({
             <label htmlFor="hash-input" className="text-gray-300">
               Enter Hash(es)
             </label>
-            <button
-              type="button"
-              onClick={openYoinkModal}
-              className="bg-purple-600 hover:bg-purple-700 rounded-md py-1 px-3 text-sm font-medium transition-colors flex items-center gap-1"
-              title="Extract hashes from text"
-            >
-              Yoink
-            </button>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={openBenchmarkModal}
+                className="bg-blue-600 hover:bg-blue-700 rounded-md py-1 px-3 text-sm font-medium transition-colors flex items-center gap-1"
+                title="Run hashcat benchmark"
+              >
+                <Image src="/icons/speed.svg" alt="Benchmark" width={16} height={16} />
+                Benchmark
+              </button>
+              <button
+                type="button"
+                onClick={openYoinkModal}
+                className="bg-purple-600 hover:bg-purple-700 rounded-md py-1 px-3 text-sm font-medium transition-colors flex items-center gap-1"
+                title="Extract hashes from text"
+              >
+                Yoink
+              </button>
+            </div>
           </div>
           <textarea
             id="hash-input"

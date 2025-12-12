@@ -1,8 +1,8 @@
+import { Job } from '@/types/job';
 import { CrackedHash } from '@/utils/hashUtils';
-import { HashJob } from '@/utils/jobQueue';
 
 interface DebugPanelProps {
-  job: HashJob;
+  job: Job;
 }
 
 export default function DebugPanel({ job }: DebugPanelProps) {
