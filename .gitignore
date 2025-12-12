@@ -55,3 +55,8 @@ desktop.ini
 /data/wordlists/*
 /data/rules/*
 /data/masks/*
+
+# Playwright
+/playwright-report/
+/test-results/
+.last-run.json
