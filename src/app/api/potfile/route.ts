@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { readPotfile } from '@/utils/hashUtils';
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
     const potfileContent = await readPotfile();
     return NextResponse.json({ success: true, content: potfileContent });

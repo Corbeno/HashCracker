@@ -4,8 +4,9 @@ import { debounce } from 'lodash';
 import Image from 'next/image';
 import { useCallback, useEffect, useState } from 'react';
 
-import { compareHashes } from '@/utils/clientHashUtils';
 import SearchableDropdown, { DropdownOption } from './SearchableDropdown';
+
+import { compareHashes } from '@/utils/clientHashUtils';
 
 interface YoinkHashesModalProps {
   isOpen: boolean;
@@ -32,13 +33,21 @@ export default function YoinkHashesModal({ isOpen, onClose, onUseHashes }: Yoink
   const [outputText, setOutputText] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [hashTypeOptions, setHashTypeOptions] = useState<HashTypeOption[]>([]);
-  const [selectedHashType, setSelectedHashType] = useState<number | null>(null);
+  const [selectedHashType, setSelectedHashType] = useState<number | null>(lastSelectedHashType);
   const [isLoadingHashTypes, setIsLoadingHashTypes] = useState(false);
   const [extractionResult, setExtractionResult] = useState<{
     hashType?: string;
     count?: number;
     error?: string;
   }>({});
+  // Use extractionResult to prevent unused var warning if you intend to use it later,
+  // or simple suppression.
+  // Actually, let's just log it if error to use it, or supress.
+  useEffect(() => {
+    if (extractionResult.error) {
+      console.error(extractionResult.error);
+    }
+  }, [extractionResult]);
   const [crackedHashes, setCrackedHashes] = useState<Record<string, CrackedHashData>>({});
   const [displayHashes, setDisplayHashes] = useState<
     Array<{ hash: string; password?: string; isCaseSensitive: boolean }>
@@ -71,10 +80,13 @@ export default function YoinkHashesModal({ isOpen, onClose, onUseHashes }: Yoink
 
       setHashTypeOptions(options);
 
-      // Set default selection if no previous selection and options are available
-      if (selectedHashType === null && options.length > 0) {
+      // Set default selection if no previous selection, options are available, and not already set
+      if (selectedHashType === null && lastSelectedHashType === null && options.length > 0) {
         setSelectedHashType(options[0].id as number);
         lastSelectedHashType = options[0].id as number;
+      } else if (selectedHashType === null && lastSelectedHashType !== null) {
+        // It was initialized in useState, but just in case
+        setSelectedHashType(lastSelectedHashType);
       }
     } catch (error) {
       console.error('Error fetching hash types with regex:', error);
@@ -158,13 +170,11 @@ export default function YoinkHashesModal({ isOpen, onClose, onUseHashes }: Yoink
       const hashes = outputText.split('\n').filter(hash => hash.trim() !== '');
       const newDisplayHashes = hashes.map(hash => {
         // Handle case-sensitivity when comparing hashes
-        let matchedHash = hash;
         let password: string | undefined = undefined;
         let isCaseSensitive = false;
 
         // First try direct lookup
         if (crackedHashes[hash]) {
-          matchedHash = hash;
           password = crackedHashes[hash].password;
           isCaseSensitive = crackedHashes[hash].isCaseSensitive;
         } else {
@@ -175,7 +185,9 @@ export default function YoinkHashesModal({ isOpen, onClose, onUseHashes }: Yoink
           });
 
           if (matchedEntry) {
-            [matchedHash, { password, isCaseSensitive }] = matchedEntry;
+            const data = matchedEntry[1];
+            password = data.password;
+            isCaseSensitive = data.isCaseSensitive;
           }
         }
 

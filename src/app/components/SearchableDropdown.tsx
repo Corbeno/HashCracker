@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, ReactNode } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 export interface DropdownOption {
@@ -193,8 +193,8 @@ export default function SearchableDropdown({
   // Default render function for dropdown options
   const defaultRenderOption = (
     option: DropdownOption,
-    isSelected: boolean,
-    isHighlighted: boolean
+    _isSelected: boolean,
+    _isHighlighted: boolean
   ) => (
     <div className="flex flex-col group relative w-full">
       <div className="break-words">{option.name}</div>

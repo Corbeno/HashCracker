@@ -1,6 +1,5 @@
 import crypto from 'crypto';
-import { watch } from 'fs';
-import fs from 'fs';
+import fs, { watch } from 'fs';
 import path from 'path';
 
 import { NextRequest } from 'next/server';
@@ -67,7 +66,7 @@ if (!global.fileWatcher && fs.existsSync(path.dirname(crackedFile))) {
   });
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   // Store a reference to the client's controller that we can use in the cancel method
   let clientController: ReadableStreamDefaultController | null = null;
   let clientId: string | null = null;

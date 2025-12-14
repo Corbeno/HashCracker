@@ -53,10 +53,6 @@ export interface HashcatStatusJson {
   estimated_stop: number;
 }
 
-function getPrettyCommand(command: string, args: string[]): string {
-  return [command, ...args].join(' ').replace(/\\/g, '/');
-}
-
 export function readCrackedHashes(): CrackedHash[] {
   const crackedFile = path.join(config.hashcat.dirs.hashes, 'cracked.txt');
 
@@ -345,7 +341,7 @@ export class HashCracker extends EventEmitter {
             this.emit('debug', debugInfo);
           }
           return;
-        } catch (e) {
+        } catch {
           // Failed to parse as JSON, treat as regular output
           // logger.debug("Failed to parse JSON: " + e);
         }
@@ -490,7 +486,7 @@ async function isHashcatRunning(): Promise<boolean> {
       stdout += data.toString();
     });
 
-    childProcess.on('close', code => {
+    childProcess.on('close', _code => {
       if (platform === 'win32') {
         // On Windows, check if the output contains information about hashcat
         resolve(stdout.toLowerCase().includes('hashcat'));
@@ -537,7 +533,7 @@ async function getHashcatProcessIds(): Promise<string[]> {
       stdout += data.toString();
     });
 
-    childProcess.on('close', code => {
+    childProcess.on('close', _code => {
       if (platform === 'win32') {
         // Parse Windows WMIC CSV output
         const lines = stdout.trim().split('\n');

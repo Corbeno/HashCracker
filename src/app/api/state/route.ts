@@ -17,7 +17,7 @@ if (!global.__systemInfoCache__?.updateIntervalId) {
   initSystemInfoCache(config.hashcat.statusTimer * 1000);
 }
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
     // Run all data fetching operations in parallel
     const [jobs, crackedHashes, potfileContent, systemInfo] = await Promise.all([

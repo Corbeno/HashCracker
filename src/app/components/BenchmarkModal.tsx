@@ -1,9 +1,11 @@
 'use client';
 
-import config from '@/config';
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
+
 import SearchableDropdown, { DropdownOption } from './SearchableDropdown';
+
+import config from '@/config';
 
 interface BenchmarkModalProps {
   isOpen: boolean;

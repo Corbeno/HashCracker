@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import config from '@/config';
 import { logger } from '@/utils/logger';
 
-export async function GET(req: NextRequest) {
+export async function GET(_req: NextRequest) {
   try {
     // Filter hash types to only include those with non-empty regex
     const hashTypesWithRegex = Object.entries(config.hashcat.hashTypes)

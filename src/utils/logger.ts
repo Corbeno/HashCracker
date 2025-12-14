@@ -80,7 +80,7 @@ class Logger {
       const content = await fs.readFile(this.logFile, 'utf-8');
       const lines = content.split('\n');
       return lines.slice(-lastLines).join('\n');
-    } catch (error) {
+    } catch {
       return 'No logs available';
     }
   }

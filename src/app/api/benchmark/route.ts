@@ -1,8 +1,10 @@
+import { spawn } from 'child_process';
+import path from 'path';
+
+import { NextResponse } from 'next/server';
+
 import config from '@/config';
 import { logger } from '@/utils/logger';
-import { spawn } from 'child_process';
-import { NextResponse } from 'next/server';
-import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
