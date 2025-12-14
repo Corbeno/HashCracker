@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,md}\"",
-    "lint:fix": "eslint --fix \"**/*.{js,jsx,ts,tsx}\""
+    "lint:fix": "eslint --fix \"**/*.{js,jsx,ts,tsx}\"",
+    "test": "playwright test"
   },
   "dependencies": {
     "@types/lodash": "^4.17.16",
