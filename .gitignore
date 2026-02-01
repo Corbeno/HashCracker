@@ -60,3 +60,5 @@ desktop.ini
 /playwright-report/
 /test-results/
 .last-run.json
+
+.chunkhound/

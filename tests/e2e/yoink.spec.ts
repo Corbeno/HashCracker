@@ -2,22 +2,6 @@ import { expect, test } from '@playwright/test';
 
 test.describe('Yoink Modal', () => {
   test.beforeEach(async ({ page }) => {
-    // Mock the hash types API
-    await page.route('/api/hash-types-with-regex', async (route) => {
-      const json = {
-        hashTypes: [
-          { id: 0, name: 'MD5', category: 'Raw Hash', regex: '^[a-f0-9]{32}$' },
-          { id: 1000, name: 'NTLM', category: 'Details', regex: '^[a-f0-9]{32}$' }
-        ]
-      };
-      await route.fulfill({ json });
-    });
-    
-    // Mock cracked hashes API (empty by default)
-    await page.route('/api/cracked-hashes', async (route) => {
-        await route.fulfill({ json: { crackedHashes: {} } });
-    });
-
     await page.goto('/');
   });
 
@@ -30,50 +14,126 @@ test.describe('Yoink Modal', () => {
     await expect(page.getByRole('heading', { name: 'Yoink Hashes from your logs!' })).not.toBeVisible();
   });
 
-  test('should extract hashes successfully', async ({ page }) => {
-    // Mock extraction
-    await page.route('/api/extract-hashes', async (route) => {
-       await route.fulfill({ json: { hashes: ['5f4dcc3b5aa765d61d8327deb882cf99'], hashType: 'MD5', count: 1 } });
-    });
-
+  test('should load hash types from API', async ({ page }) => {
     await page.getByRole('button', { name: 'Yoink' }).click();
     
-    // Check loading types is gone
-    await expect(page.getByText('Loading hash types...')).not.toBeVisible();
+    // Wait for hash types to load
+    await expect(page.getByText('Loading hash types...')).not.toBeVisible({ timeout: 10000 });
     
-    // Select MD5 (id: 0)
-    // The SearchableDropdown uses logic to show options.
+    // Verify dropdown is populated
+    const modal = page.locator('.fixed.inset-0').filter({ hasText: 'Yoink Hashes from your logs!' });
+    const dropdown = modal.getByPlaceholder('Select hash type...');
+    await expect(dropdown).toBeVisible();
+    
+    // Should have a default value (likely MD5)
+    await expect(dropdown).toHaveValue(/\d+ - /);
+  });
+
+  test('should extract MD5 hashes from text', async ({ page }) => {
+    await page.getByRole('button', { name: 'Yoink' }).click();
+    
+    // Wait for loading to complete
+    await expect(page.getByText('Loading hash types...')).not.toBeVisible({ timeout: 10000 });
+    
     // Scope to modal
     const modal = page.locator('.fixed.inset-0').filter({ hasText: 'Yoink Hashes from your logs!' });
+    
+    // Select MD5 hash type
     const dropdownTrigger = modal.getByPlaceholder('Select hash type...');
     await dropdownTrigger.click();
     await page.locator('#dropdown-option-0').click();
 
-    // Input text
-    await page.locator('#input-text').fill('search 5f4dcc3b5aa765d61d8327deb882cf99 here');
+    // Input text with a known MD5 hash
+    const testText = 'Here is a hash: 5f4dcc3b5aa765d61d8327deb882cf99 in some text';
+    await page.locator('#input-text').fill(testText);
     
-    // Wait for the debounced api call (we can wait for the result in UI)
+    // Wait for debounced extraction (500ms + processing time)
+    await page.waitForTimeout(1000);
+    
+    // Verify hash was extracted
     const resultArea = page.locator('.bg-gray-700.text-white.p-3.rounded-md.flex-1.overflow-auto');
     await expect(resultArea.getByText('5f4dcc3b5aa765d61d8327deb882cf99')).toBeVisible();
   });
 
-  test('should handle no hashes found/empty result', async ({ page }) => {
-     await page.route('/api/extract-hashes', async (route) => {
-       await route.fulfill({ json: { hashes: [], hashType: 'MD5', count: 0 } });
-    });
-
+  test('should handle text with no hashes', async ({ page }) => {
     await page.getByRole('button', { name: 'Yoink' }).click();
-    await expect(page.getByText('Loading hash types...')).not.toBeVisible();
+    await expect(page.getByText('Loading hash types...')).not.toBeVisible({ timeout: 10000 });
 
     const modal = page.locator('.fixed.inset-0').filter({ hasText: 'Yoink Hashes from your logs!' });
     const dropdownTrigger = modal.getByPlaceholder('Select hash type...');
     await dropdownTrigger.click();
-    // Assuming 0 is MD5 based on our mock
     await page.locator('#dropdown-option-0').click();
 
-    await page.locator('#input-text').fill('no hashes here');
+    await page.locator('#input-text').fill('This text has no hashes at all');
     
-    // The UI stays in default state if empty
+    // Wait for processing
+    await page.waitForTimeout(1000);
+    
+    // Should show placeholder text
     await expect(page.getByText('Extracted hashes will appear here...')).toBeVisible();
+  });
+
+  test('should extract multiple hashes', async ({ page }) => {
+    await page.getByRole('button', { name: 'Yoink' }).click();
+    await expect(page.getByText('Loading hash types...')).not.toBeVisible({ timeout: 10000 });
+
+    const modal = page.locator('.fixed.inset-0').filter({ hasText: 'Yoink Hashes from your logs!' });
+    const dropdownTrigger = modal.getByPlaceholder('Select hash type...');
+    await dropdownTrigger.click();
+    await page.locator('#dropdown-option-0').click();
+
+    // Multiple MD5 hashes
+    const testText = `
+      Hash 1: 5f4dcc3b5aa765d61d8327deb882cf99
+      Hash 2: 098f6bcd4621d373cade4e832627b4f6
+      Hash 3: 21232f297a57a5a743894a0e4a801fc3
+    `;
+    await page.locator('#input-text').fill(testText);
+    
+    await page.waitForTimeout(1000);
+    
+    const resultArea = page.locator('.bg-gray-700.text-white.p-3.rounded-md.flex-1.overflow-auto');
+    await expect(resultArea.getByText('5f4dcc3b5aa765d61d8327deb882cf99')).toBeVisible();
+    await expect(resultArea.getByText('098f6bcd4621d373cade4e832627b4f6')).toBeVisible();
+    await expect(resultArea.getByText('21232f297a57a5a743894a0e4a801fc3')).toBeVisible();
+  });
+
+  test('should use extracted hashes in main form', async ({ page }) => {
+    await page.getByRole('button', { name: 'Yoink' }).click();
+    await expect(page.getByText('Loading hash types...')).not.toBeVisible({ timeout: 10000 });
+
+    const modal = page.locator('.fixed.inset-0').filter({ hasText: 'Yoink Hashes from your logs!' });
+    const dropdownTrigger = modal.getByPlaceholder('Select hash type...');
+    await dropdownTrigger.click();
+    await page.locator('#dropdown-option-0').click();
+
+    await page.locator('#input-text').fill('Hash: 5f4dcc3b5aa765d61d8327deb882cf99');
+    await page.waitForTimeout(1000);
+    
+    // Click "Use Uncracked Hashes"
+    await page.getByRole('button', { name: 'Use Uncracked Hashes' }).click();
+    
+    // Modal should close
+    await expect(page.getByRole('heading', { name: 'Yoink Hashes from your logs!' })).not.toBeVisible();
+    
+    // Wait a moment for the hash to populate
+    await page.waitForTimeout(500);
+    
+    // Hash should be in main input
+    const mainInput = page.locator('#hash-input');
+    await expect(mainInput).toHaveValue(/5f4dcc3b5aa765d61d8327deb882cf99/);
+  });
+
+  test('should clear input', async ({ page }) => {
+    await page.getByRole('button', { name: 'Yoink' }).click();
+    await expect(page.getByText('Loading hash types...')).not.toBeVisible({ timeout: 10000 });
+
+    await page.locator('#input-text').fill('Some text here');
+    
+    // Click Clear button
+    await page.getByRole('button', { name: 'Clear' }).click();
+    
+    // Input should be empty
+    await expect(page.locator('#input-text')).toBeEmpty();
   });
 });
