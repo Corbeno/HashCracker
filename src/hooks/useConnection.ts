@@ -170,6 +170,97 @@ export default function useConnection(): UseConnectionResult {
             console.error('Error handling system info event:', error);
           }
         });
+
+        // Handle team summaries updates
+        eventSource.addEventListener('teamSummariesUpdate', e => {
+          try {
+            const data = JSON.parse(e.data);
+            const summariesEvent = new CustomEvent('teamSummariesUpdate', {
+              detail: data,
+            });
+            window.dispatchEvent(summariesEvent);
+          } catch (error) {
+            console.error('Error parsing teamSummariesUpdate event data:', error);
+          }
+        });
+
+        // Handle individual team vault updates
+        eventSource.addEventListener('teamVaultUpdate', e => {
+          try {
+            const data = JSON.parse(e.data);
+            const vaultEvent = new CustomEvent('teamVaultUpdate', {
+              detail: data,
+            });
+            window.dispatchEvent(vaultEvent);
+          } catch (error) {
+            console.error('Error parsing teamVaultUpdate event data:', error);
+          }
+        });
+
+        // Handle team deletion events
+        eventSource.addEventListener('teamVaultDeleted', e => {
+          try {
+            const data = JSON.parse(e.data);
+            const deletedEvent = new CustomEvent('teamVaultDeleted', {
+              detail: data,
+            });
+            window.dispatchEvent(deletedEvent);
+          } catch (error) {
+            console.error('Error parsing teamVaultDeleted event data:', error);
+          }
+        });
+
+        // Handle credential created events
+        eventSource.addEventListener('credentialCreated', e => {
+          try {
+            const data = JSON.parse(e.data);
+            const credentialEvent = new CustomEvent('credentialCreated', {
+              detail: data,
+            });
+            window.dispatchEvent(credentialEvent);
+          } catch (error) {
+            console.error('Error parsing credentialCreated event data:', error);
+          }
+        });
+
+        // Handle credential updated events
+        eventSource.addEventListener('credentialUpdated', e => {
+          try {
+            const data = JSON.parse(e.data);
+            const credentialEvent = new CustomEvent('credentialUpdated', {
+              detail: data,
+            });
+            window.dispatchEvent(credentialEvent);
+          } catch (error) {
+            console.error('Error parsing credentialUpdated event data:', error);
+          }
+        });
+
+        // Handle credential deleted events
+        eventSource.addEventListener('credentialDeleted', e => {
+          try {
+            const data = JSON.parse(e.data);
+            const credentialEvent = new CustomEvent('credentialDeleted', {
+              detail: data,
+            });
+            window.dispatchEvent(credentialEvent);
+          } catch (error) {
+            console.error('Error parsing credentialDeleted event data:', error);
+          }
+        });
+
+        // Handle shared credential updated events
+        eventSource.addEventListener('sharedCredentialUpdated', e => {
+          try {
+            const data = JSON.parse(e.data);
+            const credentialEvent = new CustomEvent('sharedCredentialUpdated', {
+              detail: data,
+            });
+            window.dispatchEvent(credentialEvent);
+          } catch (error) {
+            console.error('Error parsing sharedCredentialUpdated event data:', error);
+          }
+        });
       } catch (error) {
         console.error('Error initializing event source:', error);
         setConnectedStatus('disconnected');

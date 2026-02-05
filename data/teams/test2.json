@@ -1,0 +1,50 @@
+{
+  "teamId": "test2",
+  "teamName": "Test2",
+  "credentials": [
+    {
+      "id": "cred_1770091183766_t3chjl8",
+      "hash": "31d6cfe0d16ae931b73c59d7e0c089c0",
+      "hashTypeId": 1000,
+      "hashTypeName": "NTLM",
+      "username": "Guest",
+      "password": "6aab3fc1a7ac9d01708c3f366a4b9b31",
+      "credentialType": "tsi",
+      "vmIds": [],
+      "source": null,
+      "crackedAt": "2026-02-03T05:45:02.560Z",
+      "createdAt": "2026-02-03T03:59:43.766Z",
+      "updatedAt": "2026-02-03T05:25:08.654Z"
+    },
+    {
+      "id": "cred_1770091183766_4a8satg",
+      "hash": "8846f7eaee8fb117ad06bdd830b7586c",
+      "hashTypeId": 1000,
+      "hashTypeName": "NTLM",
+      "username": "DefaultAccount",
+      "password": "password",
+      "credentialType": "tsi",
+      "vmIds": [],
+      "source": null,
+      "crackedAt": "2026-02-03T05:45:02.560Z",
+      "createdAt": "2026-02-03T03:59:43.766Z",
+      "updatedAt": "2026-02-03T05:25:08.654Z"
+    },
+    {
+      "id": "cred_1770091183766_1s5qk03",
+      "hash": "2d20d252a479f485cdf5e171d93985bf",
+      "hashTypeId": 1000,
+      "hashTypeName": "NTLM",
+      "username": "john.doe",
+      "password": "qwerty",
+      "credentialType": "tsi",
+      "vmIds": [],
+      "source": null,
+      "crackedAt": "2026-02-03T05:45:02.560Z",
+      "createdAt": "2026-02-03T03:59:43.766Z",
+      "updatedAt": "2026-02-03T05:25:08.654Z"
+    }
+  ],
+  "createdAt": "2026-02-03T03:56:29.032Z",
+  "updatedAt": "2026-02-05T03:23:51.370Z"
+}

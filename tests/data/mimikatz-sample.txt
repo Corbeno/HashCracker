@@ -1,0 +1,80 @@
+# Sample Mimikatz Output for CDC Testing
+# This mimics output from mimikatz sekurlsa::logonpasswords or lsadump::sam
+
+Authentication Id : 0 ; 123456 (00000000:0001e240)
+Session           : Interactive from 1
+User Name         : Administrator
+Domain            : ACME
+Logon Server      : DC01
+Logon Time        : 2/2/2026 8:30:15 AM
+SID               : S-1-5-21-1234567890-1234567890-1234567890-500
+	msv : 		[00000003] Primary
+	 * Username : Administrator
+	 * Domain   : ACME
+	 * NTLM     : 31d6cfe0d16ae931b73c59d7e0c089c0
+	 * SHA1     : a9993e364706816aba3e25717850c26c9cd0d89d
+	 * DPAPI    : 4e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e
+	tspkg : 	* Username : Administrator
+	 * Domain   : ACME
+	 * Password : (null)
+	wdigest : 	* Username : Administrator
+	 * Domain   : ACME
+	 * Password : (null)
+	kerberos : 	* Username : Administrator
+	 * Domain   : ACME
+	 * Password : (null)
+	ssp : 		* Username : Administrator
+	 * Domain   : ACME
+	 * Password : (null)
+	credman : 
+
+Authentication Id : 0 ; 123457 (00000000:0001e241)
+Session           : Interactive from 1
+User Name         : john.smith
+Domain            : ACME
+Logon Server      : DC01
+Logon Time        : 2/2/2026 9:15:22 AM
+SID               : S-1-5-21-1234567890-1234567890-1234567890-1013
+	msv : 		[00000003] Primary
+	 * Username : john.smith
+	 * Domain   : ACME
+	 * NTLM     : 098f6bcd4621d373cade4e832627b4f6
+	 * SHA1     : b5e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e
+	tspkg : 	* Username : john.smith
+	 * Domain   : ACME
+	 * Password : (null)
+	wdigest : 	* Username : john.smith
+	 * Domain   : ACME
+	 * Password : (null)
+
+Authentication Id : 0 ; 123458 (00000000:0001e242)
+Session           : Interactive from 1
+User Name         : svc_sql
+Domain            : ACME
+Logon Server      : DC01
+Logon Time        : 2/2/2026 9:20:05 AM
+SID               : S-1-5-21-1234567890-1234567890-1234567890-1010
+	msv : 		[00000003] Primary
+	 * Username : svc_sql
+	 * Domain   : ACME
+	 * NTLM     : b4b9b02e6f09a9bd760f388b67351e2b
+	 * SHA1     : c6e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e
+	tspkg : 	* Username : svc_sql
+	 * Domain   : ACME
+	 * Password : (null)
+
+Authentication Id : 0 ; 123459 (00000000:0001e243)
+Session           : Interactive from 2
+User Name         : domainadmin
+Domain            : DOM
+Logon Server      : DC01
+Logon Time        : 2/2/2026 7:45:00 AM
+SID               : S-1-5-21-1234567890-1234567890-1234567890-1000
+	msv : 		[00000003] Primary
+	 * Username : domainadmin
+	 * Domain   : DOM
+	 * NTLM     : e19ccf75ee54e06b06a5907af13cef42
+	 * SHA1     : d7e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e3e
+	tspkg : 	* Username : domainadmin
+	 * Domain   : DOM
+	 * Password : (null)

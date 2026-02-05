@@ -1,0 +1,22 @@
+[
+  {
+    "id": "db",
+    "name": "db",
+    "scope": "global",
+    "ipAddress": "192.168.1.1",
+    "osType": "linux",
+    "description": "",
+    "createdAt": "2026-02-02T07:08:18.432Z",
+    "updatedAt": "2026-02-02T07:08:18.432Z"
+  },
+  {
+    "id": "ad",
+    "name": "ad",
+    "scope": "global",
+    "ipAddress": "",
+    "osType": "windows",
+    "description": "",
+    "createdAt": "2026-02-05T03:00:02.963Z",
+    "updatedAt": "2026-02-05T03:00:02.963Z"
+  }
+]

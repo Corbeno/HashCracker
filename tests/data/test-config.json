@@ -1,0 +1,80 @@
+{
+  "description": "Test configuration for CDC credential management",
+  "vms": [
+    {
+      "id": "dc01",
+      "name": "Domain Controller 01",
+      "scope": "global",
+      "osType": "windows",
+      "ipAddress": "192.168.1.10"
+    },
+    {
+      "id": "web01",
+      "name": "Web Server 01",
+      "scope": "global",
+      "osType": "linux",
+      "ipAddress": "192.168.1.20"
+    },
+    {
+      "id": "db01",
+      "name": "Database Server 01",
+      "scope": "global",
+      "osType": "windows",
+      "ipAddress": "192.168.1.30"
+    },
+    {
+      "id": "team1-ws01",
+      "name": "Team 1 Workstation 01",
+      "scope": "team-specific",
+      "teamId": "team1",
+      "osType": "windows",
+      "ipAddress": "192.168.2.11"
+    }
+  ],
+  "teams": [
+    {
+      "teamId": "team1",
+      "teamName": "Blue Team 1"
+    },
+    {
+      "teamId": "team2",
+      "teamName": "Blue Team 2"
+    }
+  ],
+  "expectedResults": {
+    "pwdump-sample.txt": {
+      "format": "pwdump",
+      "parser": "ntlm-pwdump",
+      "totalLines": 20,
+      "expectedCredentials": 13,
+      "machineAccountsFiltered": 2,
+      "expectedUsernames": [
+        "Administrator",
+        "Guest",
+        "domainadmin",
+        "svc_sql",
+        "svc_web",
+        "svc_backup",
+        "john.smith",
+        "jane.doe",
+        "bob.wilson",
+        "svc_monitor",
+        "svc_deploy",
+        "test.user",
+        "demo.account"
+      ]
+    },
+    "netntlmv2-sample.txt": {
+      "format": "NetNTLMv2",
+      "parser": "ntlm-netntlmv2",
+      "expectedCredentials": 9,
+      "expectedDomains": ["ACME"]
+    },
+    "mimikatz-sample.txt": {
+      "format": "mimikatz",
+      "note": "Currently extracts NTLM hashes from sekurlsa::logonpasswords output",
+      "expectedCredentials": 4,
+      "expectedUsernames": ["Administrator", "john.smith", "svc_sql", "domainadmin"]
+    }
+  }
+}

@@ -1,0 +1,27 @@
+# Sample NetNTLMv2 Captures for CDC Testing
+# These are network authentication captures from Responder or similar tools
+# Format variations supported by the parser
+
+# Format 1: DOMAIN\user::challenge:NTResponse:LMResponse
+# Domain Controller authentication
+ACME\administrator::c4b6c7d8e9f0a1b2:5e6f5f5e7e8f9e0e1e2e3e4e5e6e7e8e:0102030405060708090a0b0c0d0e0f10:::
+
+# Service account network auth
+ACME\svc_sql::a1b2c3d4e5f6a7b8:9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f:11223344556677889900aabbccddeeff:::
+
+# Regular user network auth  
+ACME\john.smith::b2c3d4e5f6a7b8c9:0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a:223344556677889900aabbccddeeff00:::
+ACME\jane.doe::c3d4e5f6a7b8c9d0:1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b:3344556677889900aabbccddeeff0011:::
+
+# Format 2: user::DOMAIN:challenge:NTResponse:LMResponse
+# Alternative format from some capture tools
+administrator::ACME:d4e5f6a7b8c9d0e1:2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c:44556677889900aabbccddeeff001122:::
+svc_web::ACME:e5f6a7b8c9d0e1f2:3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d:556677889900aabbccddeeff00112233:::
+
+# More user captures
+bob.wilson::ACME:f6a7b8c9d0e1f2a3:4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e:6677889900aabbccddeeff0011223344:::
+svc_backup::ACME:a7b8c9d0e1f2a3b4:5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f:77889900aabbccddeeff001122334455:::
+
+# Format 3: With client challenge appended
+# user::DOMAIN:challenge:NTResponse:LMResponse:client_challenge
+administrator::ACME:b8c9d0e1f2a3b4c5:6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a:889900aabbccddeeff00112233445566:9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d:::

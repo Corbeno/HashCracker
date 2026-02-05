@@ -9,6 +9,8 @@ import { readCrackedHashes, readPotfile } from '@/utils/hashUtils';
 import { logger } from '@/utils/logger';
 import { sendEventToAll, SSEClient } from '@/utils/miscUtils';
 import { getSystemInfo, initSystemInfoCache } from '@/utils/systemInfoCache';
+import { broadcastTeamSummaries, broadcastTeamVaultUpdate } from '@/utils/teamEvents';
+import { syncCrackedHashesToAllTeams } from '@/utils/teamStorage';
 
 if (!global.eventClients) {
   global.eventClients = new Set<SSEClient>();
@@ -59,6 +61,25 @@ if (!global.fileWatcher && fs.existsSync(path.dirname(crackedFile))) {
         // Also update the potfile
         const content = await readPotfile();
         sendEventToAll('potfileUpdate', { content });
+
+        // Auto-sync cracked hashes to team vaults
+        try {
+          const syncResult = syncCrackedHashesToAllTeams(hashes);
+          if (syncResult.credentialsUpdated > 0) {
+            logger.info(
+              `Auto-synced ${syncResult.credentialsUpdated} cracked passwords to ${syncResult.teamsUpdated} teams`
+            );
+            // Notify clients that team vaults were updated
+            sendEventToAll('teamVaultsUpdated', syncResult);
+
+            if (syncResult.updatedTeamIds.length > 0) {
+              syncResult.updatedTeamIds.forEach(teamId => broadcastTeamVaultUpdate(teamId));
+              broadcastTeamSummaries();
+            }
+          }
+        } catch (syncError) {
+          logger.error('Error auto-syncing to team vaults:', syncError);
+        }
       }
     } catch (error) {
       logger.error('Error in file watcher:', error);
