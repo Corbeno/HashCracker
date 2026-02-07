@@ -128,7 +128,7 @@ export default function CredentialVaultPanel() {
   }, [selectedIds, deleteCredentials]);
 
   return (
-    <div className="w-full max-w-[1800px] mx-auto bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl border border-gray-700 flex flex-col gap-4">
+    <div className="w-full max-w-[1800px] mx-auto h-full bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl border border-gray-700 flex flex-col gap-4">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Credential Vault</h2>
         <div className="flex gap-2 items-center">
@@ -156,7 +156,7 @@ export default function CredentialVaultPanel() {
         </div>
       </div>
 
-      <div style={{ height: 400, width: '100%' }}>
+      <div className="flex-1 min-h-[300px]" style={{ width: '100%' }}>
         <AgGridReact<Credential>
           rowData={credentials}
           columnDefs={columnDefs}

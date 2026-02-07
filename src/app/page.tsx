@@ -45,7 +45,7 @@ export default function Home() {
   };
 
   return (
-    <main className="px-4 py-8 min-h-screen">
+    <main className="px-4 py-8 min-h-screen flex flex-col">
       <div className="container mx-auto max-w-4xl space-y-8">
         <AppHeader
           connectedStatus={connectedStatus as 'connected' | 'disconnected'}
@@ -82,7 +82,7 @@ export default function Home() {
       </div>
 
       {activeTab === 'Credential Vault' && (
-        <div className="container mx-auto mt-8 max-w-[1800px]">
+        <div className="container mx-auto mt-8 max-w-[1800px] h-[calc(100vh-240px)] min-h-[500px]">
           <CredentialVaultPanel />
         </div>
       )}
