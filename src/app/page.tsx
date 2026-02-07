@@ -6,14 +6,19 @@ import ActiveJobsPanel from '@/app/components/ActiveJobsPanel';
 import AppHeader from '@/app/components/AppHeader';
 import BenchmarkModal from '@/app/components/BenchmarkModal';
 import CrackedHashesPanel from '@/app/components/CrackedHashesPanel';
+import CredentialVaultPanel from '@/app/components/CredentialVaultPanel';
 import HashInputForm from '@/app/components/HashInputForm';
 import PotfileModal from '@/app/components/PotfileModal';
+import TabBar from '@/app/components/TabBar';
 import YoinkHashesModal from '@/app/components/YoinkHashesModal';
 import useConnection from '@/hooks/useConnection';
 import useHashManagement from '@/hooks/useHashManagement';
 import { Job } from '@/types/job';
 
+const TABS = ['Cracker', 'Credential Vault'];
+
 export default function Home() {
+  const [activeTab, setActiveTab] = useState(TABS[0]);
   const [expandedJob, setExpandedJob] = useState<Job | null>(null);
   const [hashInput, setHashInput] = useState('');
   const [hashType, setHashType] = useState<number>(0);
@@ -40,33 +45,47 @@ export default function Home() {
   };
 
   return (
-    <main className="container mx-auto px-4 py-8 space-y-8 max-w-4xl min-h-screen">
-      <AppHeader
-        connectedStatus={connectedStatus as 'connected' | 'disconnected'}
-        liveViewingEnabled={liveViewingEnabled}
-        toggleLiveViewing={toggleLiveViewing}
-      />
+    <main className="px-4 py-8 min-h-screen">
+      <div className="container mx-auto max-w-4xl space-y-8">
+        <AppHeader
+          connectedStatus={connectedStatus as 'connected' | 'disconnected'}
+          liveViewingEnabled={liveViewingEnabled}
+          toggleLiveViewing={toggleLiveViewing}
+        />
 
-      <HashInputForm
-        hashInput={hashInput}
-        hashType={hashType}
-        setHashType={setHashType}
-        setHashInput={setHashInput}
-        openYoinkModal={() => setIsYoinkHashesModalOpen(true)}
-        openBenchmarkModal={openBenchmarkModal}
-        onCrackingStart={() => setHashInput('')}
-      />
+        <TabBar activeTab={activeTab} tabs={TABS} onTabChange={setActiveTab} />
 
-      <CrackedHashesPanel crackedHashes={crackedHashes} onViewPotfile={openPotfileModal} />
+        {activeTab === 'Cracker' && (
+          <>
+            <HashInputForm
+              hashInput={hashInput}
+              hashType={hashType}
+              setHashType={setHashType}
+              setHashInput={setHashInput}
+              openYoinkModal={() => setIsYoinkHashesModalOpen(true)}
+              openBenchmarkModal={openBenchmarkModal}
+              onCrackingStart={() => setHashInput('')}
+            />
 
-      <ActiveJobsPanel
-        jobs={jobs}
-        crackedHashes={crackedHashes}
-        expandedJob={expandedJob}
-        setExpandedJob={setExpandedJob}
-        copyAllHashesToInput={copyAllHashesToInput}
-        copyNonCrackedHashesToInput={copyNonCrackedHashesToInput}
-      />
+            <CrackedHashesPanel crackedHashes={crackedHashes} onViewPotfile={openPotfileModal} />
+
+            <ActiveJobsPanel
+              jobs={jobs}
+              crackedHashes={crackedHashes}
+              expandedJob={expandedJob}
+              setExpandedJob={setExpandedJob}
+              copyAllHashesToInput={copyAllHashesToInput}
+              copyNonCrackedHashesToInput={copyNonCrackedHashesToInput}
+            />
+          </>
+        )}
+      </div>
+
+      {activeTab === 'Credential Vault' && (
+        <div className="container mx-auto mt-8 max-w-[1800px]">
+          <CredentialVaultPanel />
+        </div>
+      )}
 
       {/* Modals */}
       {isPotfileModalOpen && <PotfileModal onClose={() => setIsPotfileModalOpen(false)} />}

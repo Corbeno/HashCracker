@@ -14,6 +14,8 @@
   "dependencies": {
     "@types/lodash": "^4.17.16",
     "@types/ws": "^8.18.0",
+    "ag-grid-community": "^35.0.1",
+    "ag-grid-react": "^35.0.1",
     "babel-plugin-react-compiler": "^19.0.0-beta-3229e95-20250315",
     "concat-stream": "^2.0.0",
     "execa": "^9.5.2",
