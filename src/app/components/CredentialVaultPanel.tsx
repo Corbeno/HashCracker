@@ -572,6 +572,7 @@ export default function CredentialVaultPanel() {
           onColumnResized={onColumnResized}
           rowSelection={rowSelection}
           singleClickEdit={true}
+          stopEditingWhenCellsLoseFocus={true}
           undoRedoCellEditing={true}
           undoRedoCellEditingLimit={100}
           copyHeadersToClipboard={true}
