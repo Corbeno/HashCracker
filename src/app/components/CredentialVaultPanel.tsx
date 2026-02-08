@@ -14,11 +14,11 @@ import {
   AllCommunityModule,
   CellValueChangedEvent,
   ColDef,
+  colorSchemeDark,
   ColumnMovedEvent,
   ColumnPinnedEvent,
   ColumnResizedEvent,
   ColumnVisibleEvent,
-  colorSchemeDark,
   FilterChangedEvent,
   GridApi,
   GridReadyEvent,
@@ -534,7 +534,6 @@ export default function CredentialVaultPanel() {
           onColumnResized={onColumnResized}
           rowSelection={rowSelection}
           singleClickEdit={true}
-          rowNumbers={true}
           undoRedoCellEditing={true}
           undoRedoCellEditingLimit={100}
           copyHeadersToClipboard={true}
