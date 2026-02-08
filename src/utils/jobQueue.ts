@@ -1,9 +1,10 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
+import { applyCrackedPasswordsToCredentialVault } from './credentialVaultStore';
 import { HashcatStatusJson, HashCracker, HashResult } from './hashUtils';
 import { logger } from './logger';
-import { sendJobsToAll } from './miscUtils';
+import { sendEventToAll, sendJobsToAll } from './miscUtils';
 
 import { HashcatMode } from '@/config/config';
 import { HashType } from '@/config/hashTypes';
@@ -181,6 +182,20 @@ export class JobQueue {
         job.status = result.status;
         job.results = result.results;
         job.debugInfo = result.debugInfo;
+
+        const crackedResults = result.results
+          .filter((entry): entry is HashResult & { password: string } => entry.password != null)
+          .map(entry => ({ hash: entry.hash, password: entry.password }));
+
+        if (crackedResults.length > 0) {
+          const { vault, updatedCount } = applyCrackedPasswordsToCredentialVault(
+            job.type.id,
+            crackedResults
+          );
+          if (updatedCount > 0) {
+            sendEventToAll('credentialVaultUpdated', { vault });
+          }
+        }
 
         this.completeCurrentJob();
         sendJobsToAll();

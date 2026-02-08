@@ -7,12 +7,14 @@ import * as os from 'os';
 import path from 'path';
 import readline from 'readline';
 
+import { applyCrackedPasswordsToCredentialVault } from './credentialVaultStore';
 import { DebugInfo, JobStatus } from './jobQueue';
 import { logger } from './logger';
 
 import config from '@/config';
 import { HashcatMode } from '@/config/config';
 import { HashType } from '@/config/hashTypes';
+import { sendEventToAll } from './miscUtils';
 
 export interface CrackedHash {
   hash: string;
@@ -196,6 +198,21 @@ export class HashCracker extends EventEmitter {
     if (existingResults.length === hashes.length) {
       // Add hashes that aren't there already to cracked.txt manually
       addHashesToCrackedFile(existingResults);
+
+      const crackedResults = existingResults
+        .filter((result): result is CrackedHash & { password: string } => result.password != null)
+        .map(result => ({ hash: result.hash, password: result.password }));
+
+      if (crackedResults.length > 0) {
+        const { vault, updatedCount } = applyCrackedPasswordsToCredentialVault(
+          type.id,
+          crackedResults
+        );
+        if (updatedCount > 0) {
+          sendEventToAll('credentialVaultUpdated', { vault });
+        }
+      }
+
       return {
         results: existingResults,
         status: 'completed',

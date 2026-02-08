@@ -1,6 +1,10 @@
 import fs from 'fs';
 import path from 'path';
 
+import { isEqual } from 'lodash';
+
+import { logger } from './logger';
+
 import {
   Credential,
   CredentialField,
@@ -150,7 +154,7 @@ function loadVaultFromDisk(): CredentialVaultDocument {
     const raw = fs.readFileSync(VAULT_FILE_PATH, 'utf8');
     const parsed = JSON.parse(raw) as unknown;
     const sanitized = sanitizeDocument(parsed);
-    if (JSON.stringify(parsed) !== JSON.stringify(sanitized)) {
+    if (!isEqual(parsed, sanitized)) {
       writeVaultToDisk(sanitized);
     }
     return sanitized;
@@ -285,7 +289,7 @@ export function applyCredentialVaultMutation(
       return cloneVault(current);
   }
 
-  if (JSON.stringify(next) === JSON.stringify(current)) {
+  if (isEqual(next, current)) {
     return cloneVault(current);
   }
 
@@ -321,7 +325,7 @@ export function applyCredentialVaultLogImport(
     credentials: merged.nextCredentials,
   };
 
-  if (JSON.stringify(next) === JSON.stringify(current)) {
+  if (isEqual(next, current)) {
     return { vault: cloneVault(current), result: merged.result };
   }
 
@@ -329,4 +333,57 @@ export function applyCredentialVaultLogImport(
   cachedVault = withMetadata;
   writeVaultToDisk(withMetadata);
   return { vault: cloneVault(withMetadata), result: merged.result };
+}
+
+export function applyCrackedPasswordsToCredentialVault(
+  hashType: number,
+  crackedResults: Array<{ hash: string; password: string }>
+): { vault: CredentialVaultDocument; updatedCount: number } {
+  if (crackedResults.length === 0) {
+    const current = getMutableVault();
+    return { vault: cloneVault(current), updatedCount: 0 };
+  }
+
+  const current = getMutableVault();
+  const next = cloneVault(current);
+  const crackedByHash = new Map<string, string>();
+
+  for (const result of crackedResults) {
+    const normalizedHash = result.hash.trim().toLowerCase();
+    if (!normalizedHash) continue;
+    crackedByHash.set(normalizedHash, result.password);
+  }
+
+  logger.debug('Applying cracked passwords to vault. Cracked count: ', crackedByHash.size);
+
+  logger.debug('REEEEEEEEE: ', { hashType, crackedResults, next });
+
+  let updatedCount = 0;
+  next.tabs = next.tabs.map(tab => ({
+    ...tab,
+    credentials: tab.credentials.map(credential => {
+      if (credential.hashType !== hashType) return credential;
+      if (credential.password.trim() !== '') return credential;
+
+      const crackedPassword = crackedByHash.get(credential.hash.trim().toLowerCase());
+      if (crackedPassword == null) return credential;
+
+      updatedCount += 1;
+      return {
+        ...credential,
+        password: crackedPassword,
+      };
+    }),
+  }));
+
+  logger.debug(`Finished applying cracked passwords. Updated credentials count: ${updatedCount}`);
+
+  if (updatedCount === 0 || isEqual(next, current)) {
+    return { vault: cloneVault(current), updatedCount: 0 };
+  }
+
+  const withMetadata = withDocumentMetadata(next);
+  cachedVault = withMetadata;
+  writeVaultToDisk(withMetadata);
+  return { vault: cloneVault(withMetadata), updatedCount };
 }
