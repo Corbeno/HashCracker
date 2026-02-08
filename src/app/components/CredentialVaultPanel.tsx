@@ -40,13 +40,17 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from 'react';
 
+import LogImportModal from './LogImportModal';
+
 import useCredentialVault from '@/hooks/useCredentialVault';
 import { Credential } from '@/types/credential';
+import { LogImportType } from '@/types/logImport';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 const theme = themeAlpine.withPart(colorSchemeDark);
 const GRID_STATE_STORAGE_KEY = 'credentialVault.gridState';
+const HASH_TYPE_OPTIONS = ['NTLM', 'LM', 'DCC2', 'NetNTLMv1', 'NetNTLMv2', 'Kerberos', 'Other'];
 
 interface CredentialVaultGridState {
   columnState: ReturnType<GridApi<Credential>['getColumnState']>;
@@ -83,6 +87,7 @@ export default function CredentialVaultPanel() {
     addCredential,
     updateCredential,
     deleteCredentials,
+    logImport,
   } = useCredentialVault();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [quickFilterText, setQuickFilterText] = useState('');
@@ -91,6 +96,7 @@ export default function CredentialVaultPanel() {
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null);
   const [renameTabName, setRenameTabName] = useState('');
   const [contextMenu, setContextMenu] = useState<{ tabId: string } | null>(null);
+  const [isLogImportModalOpen, setIsLogImportModalOpen] = useState(false);
   const gridApiRef = useRef<GridApi<Credential> | null>(null);
   const pendingNewRowId = useRef<string | null>(null);
   const cancelCreateTabOnBlurRef = useRef(false);
@@ -359,6 +365,15 @@ export default function CredentialVaultPanel() {
       },
       { headerName: 'Hash', field: 'hash', flex: 2 },
       {
+        headerName: 'Hash Type',
+        field: 'hashType',
+        flex: 1,
+        cellEditor: 'agSelectCellEditor',
+        cellEditorParams: {
+          values: HASH_TYPE_OPTIONS,
+        },
+      },
+      {
         headerName: 'Device',
         field: 'device',
         flex: 1,
@@ -439,6 +454,14 @@ export default function CredentialVaultPanel() {
     setSelectedIds(new Set());
   }, [activeTab, selectedIds, deleteCredentials]);
 
+  const handleLogImport = useCallback(
+    async (logType: LogImportType, rawLog: string) => {
+      if (!activeTab) return null;
+      return logImport(activeTab.id, logType, rawLog);
+    },
+    [activeTab, logImport]
+  );
+
   return (
     <div className="w-full max-w-[1800px] mx-auto h-full bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl border border-gray-700 flex flex-col gap-4">
       <div className="flex justify-between items-center">
@@ -459,6 +482,13 @@ export default function CredentialVaultPanel() {
               Delete Selected ({selectedIds.size})
             </button>
           )}
+          <button
+            onClick={() => setIsLogImportModalOpen(true)}
+            className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+            disabled={!activeTab}
+          >
+            Log Import
+          </button>
           <button
             onClick={handleAddRow}
             className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm transition-colors"
@@ -571,6 +601,11 @@ export default function CredentialVaultPanel() {
           quickFilterText={quickFilterText}
         />
       </div>
+      <LogImportModal
+        isOpen={isLogImportModalOpen}
+        onClose={() => setIsLogImportModalOpen(false)}
+        onImport={handleLogImport}
+      />
     </div>
   );
 }

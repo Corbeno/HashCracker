@@ -6,9 +6,14 @@ import {
   CredentialVaultMutation,
   CredentialVaultTab,
 } from '@/types/credentialVault';
+import { LogImportResult, LogImportType } from '@/types/logImport';
 
 interface CredentialVaultResponse {
   vault: CredentialVaultDocument;
+}
+
+interface LogImportResponse extends CredentialVaultResponse {
+  result: LogImportResult;
 }
 
 function resolveActiveTabId(
@@ -211,6 +216,36 @@ export default function useCredentialVault() {
     [mutateVault]
   );
 
+  const logImport = useCallback(
+    async (
+      tabId: string,
+      logType: LogImportType,
+      rawLog: string
+    ): Promise<LogImportResult | null> => {
+      try {
+        const response = await fetch('/api/log-import', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tabId, logType, rawLog }),
+        });
+        if (!response.ok) {
+          return null;
+        }
+
+        const payload = (await response.json()) as LogImportResponse;
+        if (!payload?.vault || !Array.isArray(payload.vault.tabs)) {
+          return null;
+        }
+
+        applySnapshot(payload.vault.tabs, tabId);
+        return payload.result;
+      } catch {
+        return null;
+      }
+    },
+    [applySnapshot]
+  );
+
   return {
     tabs,
     activeTabId,
@@ -221,5 +256,6 @@ export default function useCredentialVault() {
     addCredential,
     updateCredential,
     deleteCredentials,
+    logImport,
   };
 }

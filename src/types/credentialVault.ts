@@ -3,6 +3,7 @@ export interface Credential {
   username: string;
   password: string;
   hash: string;
+  hashType: string;
   device: string;
 }
 

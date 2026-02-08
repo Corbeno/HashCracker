@@ -8,6 +8,9 @@ import {
   CredentialVaultMutation,
   CredentialVaultTab,
 } from '@/types/credentialVault';
+import { LogImportResult, LogImportType } from '@/types/logImport';
+import { mergeImportedCredentials } from '@/utils/logImport/merge';
+import { parseImpacketNtlmLog } from '@/utils/logImport/parsers/impacketNtlm';
 
 const VAULT_FILE_PATH = path.join(process.cwd(), 'data', 'credential-vault.json');
 
@@ -19,6 +22,7 @@ function buildBlankCredential(id?: string): Credential {
     username: '',
     password: '',
     hash: '',
+    hashType: '',
     device: '',
   };
 }
@@ -48,6 +52,7 @@ function isCredential(value: unknown): value is Credential {
     typeof candidate.username === 'string' &&
     typeof candidate.password === 'string' &&
     typeof candidate.hash === 'string' &&
+    (typeof candidate.hashType === 'string' || candidate.hashType === undefined) &&
     typeof candidate.device === 'string'
   );
 }
@@ -59,6 +64,7 @@ function sanitizeCredentials(value: unknown): Credential[] {
     username: credential.username,
     password: credential.password,
     hash: credential.hash,
+    hashType: credential.hashType ?? '',
     device: credential.device,
   }));
 }
@@ -168,6 +174,16 @@ function applyCredentialUpdate(
   return { ...credential, [field]: typeof value === 'string' ? value : String(value ?? '') };
 }
 
+function emptyImportResult(): LogImportResult {
+  return {
+    parsedCount: 0,
+    createdCount: 0,
+    updatedCount: 0,
+    skippedCount: 0,
+    conflictCount: 0,
+  };
+}
+
 export function getCredentialVaultSnapshot(): CredentialVaultDocument {
   return cloneVault(getMutableVault());
 }
@@ -264,4 +280,40 @@ export function applyCredentialVaultMutation(
   cachedVault = next;
   writeVaultToDisk(next);
   return cloneVault(next);
+}
+
+export function applyCredentialVaultLogImport(
+  tabId: string,
+  logType: LogImportType,
+  rawLog: string
+): { vault: CredentialVaultDocument; result: LogImportResult } {
+  const current = getMutableVault();
+  const next = cloneVault(current);
+  const tabIndex = next.tabs.findIndex(tab => tab.id === tabId);
+
+  if (tabIndex === -1) {
+    return { vault: cloneVault(current), result: emptyImportResult() };
+  }
+
+  let parsedRecords: ReturnType<typeof parseImpacketNtlmLog>;
+  if (logType === 'impacket-ntlm') {
+    parsedRecords = parseImpacketNtlmLog(rawLog);
+  } else {
+    return { vault: cloneVault(current), result: emptyImportResult() };
+  }
+
+  const merged = mergeImportedCredentials(next.tabs[tabIndex].credentials, parsedRecords);
+  next.tabs[tabIndex] = {
+    ...next.tabs[tabIndex],
+    credentials: merged.nextCredentials,
+  };
+
+  if (JSON.stringify(next) === JSON.stringify(current)) {
+    return { vault: cloneVault(current), result: merged.result };
+  }
+
+  const withMetadata = withDocumentMetadata(next);
+  cachedVault = withMetadata;
+  writeVaultToDisk(withMetadata);
+  return { vault: cloneVault(withMetadata), result: merged.result };
 }
