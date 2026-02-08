@@ -29,6 +29,7 @@ import {
   themeAlpine,
 } from 'ag-grid-community';
 import { AgGridReact } from 'ag-grid-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   useCallback,
   useEffect,
@@ -69,6 +70,9 @@ function loadGridState(): CredentialVaultGridState | null {
 }
 
 export default function CredentialVaultPanel() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const {
     tabs,
     activeTabId,
@@ -96,6 +100,27 @@ export default function CredentialVaultPanel() {
     [tabs, activeTabId]
   );
   const contextMenuOpen = contextMenu !== null;
+  const routeTabId = searchParams?.get('tab') ?? null;
+
+  const setRouteTabParam = useCallback(
+    (tabId: string) => {
+      const params = new URLSearchParams(searchParams?.toString() ?? '');
+      params.set('tab', tabId);
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
+
+  const handleSelectTab = useCallback(
+    (tabId: string) => {
+      if (!tabs.some(tab => tab.id === tabId)) return;
+      setActiveTab(tabId);
+      if (routeTabId !== tabId) {
+        setRouteTabParam(tabId);
+      }
+    },
+    [tabs, setActiveTab, routeTabId, setRouteTabParam]
+  );
 
   const { refs, floatingStyles, context } = useFloating({
     open: contextMenuOpen,
@@ -182,6 +207,19 @@ export default function CredentialVaultPanel() {
     setQuickFilterText('');
     pendingNewRowId.current = null;
   }, [activeTabId]);
+
+  useEffect(() => {
+    if (!routeTabId || !tabs.some(tab => tab.id === routeTabId)) return;
+    if (routeTabId === activeTabId) return;
+    setActiveTab(routeTabId);
+  }, [routeTabId, activeTabId, tabs, setActiveTab]);
+
+  useEffect(() => {
+    if (!activeTabId) return;
+    const hasValidRouteTab = !!routeTabId && tabs.some(tab => tab.id === routeTabId);
+    if (hasValidRouteTab) return;
+    setRouteTabParam(activeTabId);
+  }, [activeTabId, routeTabId, tabs, setRouteTabParam]);
 
   const handleAddRow = useCallback(() => {
     if (!activeTab) return;
@@ -460,7 +498,7 @@ export default function CredentialVaultPanel() {
           ) : (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleSelectTab(tab.id)}
               onContextMenu={event => handleOpenTabContextMenu(event, tab.id)}
               className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap border transition-colors ${
                 isActive

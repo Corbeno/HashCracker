@@ -7,8 +7,6 @@ import {
   CredentialVaultTab,
 } from '@/types/credentialVault';
 
-const ACTIVE_TAB_STORAGE_KEY = 'credentialVault.activeTabId';
-
 interface CredentialVaultResponse {
   vault: CredentialVaultDocument;
 }
@@ -50,7 +48,6 @@ export default function useCredentialVault() {
   const setActiveTabId = useCallback((tabId: string) => {
     setActiveTabIdState(tabId);
     activeTabIdRef.current = tabId;
-    localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, tabId);
   }, []);
 
   const applySnapshot = useCallback(
@@ -87,10 +84,6 @@ export default function useCredentialVault() {
   );
 
   useEffect(() => {
-    const storedTabId = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY) ?? '';
-    activeTabIdRef.current = storedTabId;
-    setActiveTabIdState(storedTabId);
-
     fetchVaultSnapshot().then(vault => {
       if (!vault) return;
       applySnapshot(vault.tabs);
