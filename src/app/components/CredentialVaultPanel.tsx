@@ -9,6 +9,7 @@ import {
   GridReadyEvent,
   ModuleRegistry,
   RowSelectedEvent,
+  RowSelectionOptions,
   themeAlpine,
 } from 'ag-grid-community';
 import { AgGridReact } from 'ag-grid-react';
@@ -28,19 +29,49 @@ export default function CredentialVaultPanel() {
   const gridApiRef = useRef<GridApi<Credential> | null>(null);
   const pendingNewRowId = useRef<string | null>(null);
 
+  const defaultColDef = useMemo<ColDef<Credential>>(
+    () => ({
+      editable: true,
+      sortable: true,
+      resizable: true,
+      filter: 'agTextColumnFilter',
+      floatingFilter: true,
+      minWidth: 120,
+    }),
+    []
+  );
+
+  const rowSelection = useMemo<RowSelectionOptions<Credential>>(
+    () => ({
+      mode: 'multiRow',
+      checkboxes: true,
+      headerCheckbox: true,
+      enableClickSelection: false,
+      enableSelectionWithoutKeys: true,
+      copySelectedRows: true,
+      selectAll: 'filtered',
+    }),
+    []
+  );
+
   const onGridReady = useCallback((params: GridReadyEvent<Credential>) => {
     gridApiRef.current = params.api;
+    params.api.sizeColumnsToFit();
   }, []);
 
   // After credentials updates, if there's a pending new row, scroll to it and start editing
   useEffect(() => {
     if (!pendingNewRowId.current || !gridApiRef.current) return;
     const api = gridApiRef.current;
-    const rowIndex = credentials.findIndex(c => c.id === pendingNewRowId.current);
-    if (rowIndex === -1) return;
+    const newRowId = pendingNewRowId.current;
+    const rowNode = api.getRowNode(newRowId);
+    if (!rowNode) return;
     pendingNewRowId.current = null;
     // Small delay to let the grid finish rendering the new row
     setTimeout(() => {
+      const latestNode = api.getRowNode(newRowId);
+      const rowIndex = latestNode?.rowIndex;
+      if (rowIndex == null) return;
       api.ensureIndexVisible(rowIndex, 'bottom');
       api.startEditingCell({ rowIndex, colKey: 'username' });
     }, 0);
@@ -49,48 +80,35 @@ export default function CredentialVaultPanel() {
   const handleAddRow = useCallback(() => {
     const newId = crypto.randomUUID();
     pendingNewRowId.current = newId;
+    setQuickFilterText('');
     addCredential(newId);
   }, [addCredential]);
 
   const columnDefs = useMemo<ColDef<Credential>[]>(
     () => [
       {
-        headerName: '',
-        field: 'id',
-        checkboxSelection: true,
-        headerCheckboxSelection: true,
-        width: 48,
-        editable: false,
-        resizable: false,
-      },
-      {
         headerName: 'Username',
         field: 'username',
         flex: 1,
-        editable: true,
-        filter: 'agTextColumnFilter',
       },
       {
         headerName: 'Password',
         field: 'password',
         flex: 1,
-        editable: true,
-        filter: 'agTextColumnFilter',
       },
-      { headerName: 'Hash', field: 'hash', flex: 2, editable: true, filter: 'agTextColumnFilter' },
-      { headerName: 'Team', field: 'team', flex: 1, editable: true, filter: 'agTextColumnFilter' },
+      { headerName: 'Hash', field: 'hash', flex: 2 },
+      { headerName: 'Team', field: 'team', flex: 1 },
       {
         headerName: 'Device',
         field: 'device',
         flex: 1,
-        editable: true,
-        filter: 'agTextColumnFilter',
       },
       {
         headerName: 'Shared',
         field: 'shared',
-        width: 80,
+        width: 110,
         editable: true,
+        filter: false,
         cellRenderer: (params: { value: boolean }) => {
           return params.value ? 'Yes' : 'No';
         },
@@ -159,14 +177,19 @@ export default function CredentialVaultPanel() {
       <div className="flex-1 min-h-[300px]" style={{ width: '100%' }}>
         <AgGridReact<Credential>
           rowData={credentials}
+          defaultColDef={defaultColDef}
           columnDefs={columnDefs}
           getRowId={params => params.data.id}
           onGridReady={onGridReady}
           onCellValueChanged={onCellValueChanged}
           onRowSelected={onRowSelected}
-          rowSelection="multiple"
-          suppressRowClickSelection={true}
+          rowSelection={rowSelection}
           singleClickEdit={true}
+          rowNumbers={true}
+          undoRedoCellEditing={true}
+          undoRedoCellEditingLimit={100}
+          copyHeadersToClipboard={true}
+          suppressCopyRowsToClipboard={false}
           animateRows={true}
           theme={theme}
           quickFilterText={quickFilterText}
