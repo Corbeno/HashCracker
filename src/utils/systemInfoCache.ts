@@ -1,6 +1,46 @@
+import { execFile } from 'child_process';
+import { promisify } from 'util';
+
 import si from 'systeminformation';
 
 import { logger } from './logger';
+
+// NOTE: Most of this file is hardcoded to my system. This needs a better way, but works for now
+
+const execFileAsync = promisify(execFile);
+
+function parseGpuUtilization(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return null;
+  }
+
+  const rounded = Math.round(value);
+  if (rounded < 0) return 0;
+  if (rounded > 100) return 100;
+  return rounded;
+}
+
+async function getNvidiaSmiGpuUsage(): Promise<number | null> {
+  try {
+    const { stdout } = await execFileAsync('nvidia-smi', [
+      '--query-gpu=utilization.gpu',
+      '--format=csv,noheader,nounits',
+    ]);
+
+    const values = stdout
+      .split(/\r?\n/)
+      .map(line => Number.parseFloat(line.trim()))
+      .filter(value => Number.isFinite(value));
+
+    if (values.length === 0) {
+      return null;
+    }
+
+    return parseGpuUtilization(values[0]);
+  } catch {
+    return null;
+  }
+}
 
 // Define the system information interface
 export interface SystemInfo {
@@ -55,11 +95,14 @@ async function fetchSystemInfo(): Promise<SystemInfo | null> {
     );
 
     // Extract the relevant information
+    const controllerGpuUsage = parseGpuUtilization(primaryGpu?.utilizationGpu);
+    const fallbackGpuUsage = controllerGpuUsage == null ? await getNvidiaSmiGpuUsage() : null;
+
     const systemInfo: SystemInfo = {
       cpuName: cpuData.manufacturer ? `${cpuData.manufacturer} ${cpuData.brand}` : 'Unknown CPU',
       cpuUsage: Math.round(currentLoad.currentLoad || 0),
       gpuName: primaryGpu ? primaryGpu.model : 'Unknown GPU',
-      gpuUsage: primaryGpu ? primaryGpu.utilizationGpu || 0 : 0,
+      gpuUsage: controllerGpuUsage ?? fallbackGpuUsage ?? 0,
       ramTotal: memData.total,
       ramUsed: memData.used,
       ramUsage: (memData.used / memData.total) * 100,
