@@ -76,7 +76,7 @@ export function mergeImportedCredentials(
       continue;
     }
 
-    if (isBlank(existing.hashType)) {
+    if (existing.hashType == null) {
       existing.hashType = record.hashType;
       changed = true;
     }

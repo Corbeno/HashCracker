@@ -17,7 +17,7 @@ export function parseImpacketNtlmLog(rawLog: string): ParsedCredentialRecord[] {
     entries.push({
       username,
       hash: ntHash,
-      hashType: 'NTLM',
+      hashType: 1000,
     });
   }
 

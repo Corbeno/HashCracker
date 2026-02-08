@@ -6,7 +6,7 @@ import TabBar from '@/app/components/TabBar';
 import useConnection from '@/hooks/useConnection';
 
 const APP_TABS = [
-  { label: 'Cracker', href: '/cracker' },
+  { label: 'Hash Cracker', href: '/cracker' },
   { label: 'Credential Vault', href: '/vault' },
 ];
 

@@ -42,6 +42,7 @@ import {
 
 import LogImportModal from './LogImportModal';
 
+import config from '@/config';
 import useCredentialVault from '@/hooks/useCredentialVault';
 import { Credential } from '@/types/credential';
 import { LogImportType } from '@/types/logImport';
@@ -50,7 +51,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 
 const theme = themeAlpine.withPart(colorSchemeDark);
 const GRID_STATE_STORAGE_KEY = 'credentialVault.gridState';
-const HASH_TYPE_OPTIONS = ['NTLM', 'LM', 'DCC2', 'NetNTLMv1', 'NetNTLMv2', 'Kerberos', 'Other'];
+const PENDING_CRACKER_TRANSFER_KEY = 'pendingCrackerVaultTransfer';
 
 interface CredentialVaultGridState {
   columnState: ReturnType<GridApi<Credential>['getColumnState']>;
@@ -118,6 +119,21 @@ export default function CredentialVaultPanel() {
   );
   const contextMenuOpen = contextMenu !== null;
   const routeTabId = searchParams?.get('tab') ?? null;
+  const hashTypeOptions = useMemo(
+    () =>
+      Object.entries(config.hashcat.hashTypes)
+        .map(([id, hashType]) => ({
+          id: Number.parseInt(id, 10),
+          label: `${id} - ${hashType.name}`,
+        }))
+        .sort((a, b) => a.id - b.id),
+    []
+  );
+  const hashTypeNameById = useMemo(
+    () => new Map(hashTypeOptions.map(option => [option.id, option.label])),
+    [hashTypeOptions]
+  );
+  const hashTypeValues = useMemo(() => hashTypeOptions.map(option => option.id), [hashTypeOptions]);
 
   const setRouteTabParam = useCallback(
     (tabId: string) => {
@@ -386,7 +402,17 @@ export default function CredentialVaultPanel() {
         flex: 1,
         cellEditor: 'agSelectCellEditor',
         cellEditorParams: {
-          values: HASH_TYPE_OPTIONS,
+          values: hashTypeValues,
+        },
+        valueFormatter: params => {
+          if (params.value == null) return '';
+          const hashTypeId = Number(params.value);
+          if (!Number.isFinite(hashTypeId)) return '';
+          return hashTypeNameById.get(hashTypeId) ?? String(hashTypeId);
+        },
+        valueParser: params => {
+          const next = Number.parseInt(String(params.newValue ?? ''), 10);
+          return Number.isFinite(next) ? next : null;
         },
       },
       {
@@ -395,7 +421,7 @@ export default function CredentialVaultPanel() {
         flex: 1,
       },
     ],
-    []
+    [hashTypeNameById, hashTypeValues]
   );
 
   const onCellValueChanged = useCallback(
@@ -488,6 +514,47 @@ export default function CredentialVaultPanel() {
     setSelectedIds(new Set());
   }, [activeTab, selectedIds, deleteCredentials]);
 
+  const selectedCredentials = useMemo(() => {
+    if (!activeTab) return [];
+    return activeTab.credentials.filter(credential => selectedIds.has(credential.id));
+  }, [activeTab, selectedIds]);
+
+  const selectedCrackableRows = useMemo(
+    () =>
+      selectedCredentials.filter(
+        (credential): credential is Credential & { hashType: number } =>
+          credential.hash.trim() !== '' &&
+          credential.hashType !== null &&
+          credential.password.trim() === ''
+      ),
+    [selectedCredentials]
+  );
+
+  const selectedHashTypes = useMemo(
+    () => Array.from(new Set(selectedCrackableRows.map(credential => credential.hashType))),
+    [selectedCrackableRows]
+  );
+
+  const hasMixedSelectedHashTypes = selectedHashTypes.length > 1;
+  const canSendSelectedToCracker =
+    selectedIds.size > 0 && selectedCrackableRows.length > 0 && !hasMixedSelectedHashTypes;
+  const sendDisabledReason = hasMixedSelectedHashTypes
+    ? 'Selected rows contain multiple hash types. Choose rows with one hash type.'
+    : '';
+
+  const handleSendSelectedToCracker = useCallback(() => {
+    if (!canSendSelectedToCracker || selectedHashTypes.length < 1) return;
+
+    const hashType = selectedHashTypes[0];
+    const hashes = Array.from(
+      new Set(selectedCrackableRows.map(credential => credential.hash.trim()).filter(Boolean))
+    );
+    if (hashes.length === 0) return;
+
+    localStorage.setItem(PENDING_CRACKER_TRANSFER_KEY, JSON.stringify({ hashes, hashType }));
+    router.push('/cracker');
+  }, [canSendSelectedToCracker, router, selectedCrackableRows, selectedHashTypes]);
+
   const handleLogImport = useCallback(
     async (logType: LogImportType, rawLog: string) => {
       if (!activeTab) return null;
@@ -523,6 +590,20 @@ export default function CredentialVaultPanel() {
           >
             Log Import
           </button>
+          <div className="relative group">
+            <button
+              onClick={handleSendSelectedToCracker}
+              className="bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!canSendSelectedToCracker}
+            >
+              Crack Selected
+            </button>
+            {!canSendSelectedToCracker && sendDisabledReason && (
+              <div className="pointer-events-none absolute right-0 top-full mt-2 z-30 hidden group-hover:block w-72 rounded-md border border-gray-600 bg-gray-900 text-xs text-gray-200 p-2 shadow-lg">
+                {sendDisabledReason}
+              </div>
+            )}
+          </div>
           <button
             onClick={handleAddRow}
             className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm transition-colors"

@@ -4,7 +4,7 @@ import { LogImportResult } from '@/types/logImport';
 export interface ParsedCredentialRecord {
   username: string;
   hash: string;
-  hashType: 'NTLM';
+  hashType: number;
 }
 
 export interface MergeImportResult {

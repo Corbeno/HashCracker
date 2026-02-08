@@ -16,13 +16,21 @@ const VAULT_FILE_PATH = path.join(process.cwd(), 'data', 'credential-vault.json'
 
 let cachedVault: CredentialVaultDocument | null = null;
 
+function sanitizeHashTypeValue(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.trunc(value);
+  }
+
+  return null;
+}
+
 function buildBlankCredential(id?: string): Credential {
   return {
     id: id ?? crypto.randomUUID(),
     username: '',
     password: '',
     hash: '',
-    hashType: '',
+    hashType: null,
     device: '',
   };
 }
@@ -52,7 +60,9 @@ function isCredential(value: unknown): value is Credential {
     typeof candidate.username === 'string' &&
     typeof candidate.password === 'string' &&
     typeof candidate.hash === 'string' &&
-    (typeof candidate.hashType === 'string' || candidate.hashType === undefined) &&
+    (typeof candidate.hashType === 'number' ||
+      candidate.hashType === null ||
+      candidate.hashType === undefined) &&
     typeof candidate.device === 'string'
   );
 }
@@ -64,7 +74,7 @@ function sanitizeCredentials(value: unknown): Credential[] {
     username: credential.username,
     password: credential.password,
     hash: credential.hash,
-    hashType: credential.hashType ?? '',
+    hashType: sanitizeHashTypeValue(credential.hashType),
     device: credential.device,
   }));
 }
@@ -171,6 +181,9 @@ function applyCredentialUpdate(
   field: CredentialField,
   value: Credential[CredentialField]
 ): Credential {
+  if (field === 'hashType') {
+    return { ...credential, hashType: sanitizeHashTypeValue(value) };
+  }
   return { ...credential, [field]: typeof value === 'string' ? value : String(value ?? '') };
 }
 
