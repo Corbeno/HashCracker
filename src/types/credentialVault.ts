@@ -3,9 +3,7 @@ export interface Credential {
   username: string;
   password: string;
   hash: string;
-  team: string;
   device: string;
-  shared: boolean;
 }
 
 export interface CredentialVaultTab {

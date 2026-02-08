@@ -19,9 +19,7 @@ function buildBlankCredential(id?: string): Credential {
     username: '',
     password: '',
     hash: '',
-    team: '',
     device: '',
-    shared: false,
   };
 }
 
@@ -50,15 +48,19 @@ function isCredential(value: unknown): value is Credential {
     typeof candidate.username === 'string' &&
     typeof candidate.password === 'string' &&
     typeof candidate.hash === 'string' &&
-    typeof candidate.team === 'string' &&
-    typeof candidate.device === 'string' &&
-    typeof candidate.shared === 'boolean'
+    typeof candidate.device === 'string'
   );
 }
 
 function sanitizeCredentials(value: unknown): Credential[] {
   if (!Array.isArray(value)) return [];
-  return value.filter(isCredential);
+  return value.filter(isCredential).map(credential => ({
+    id: credential.id,
+    username: credential.username,
+    password: credential.password,
+    hash: credential.hash,
+    device: credential.device,
+  }));
 }
 
 function isTab(value: unknown): value is CredentialVaultTab {
@@ -163,9 +165,6 @@ function applyCredentialUpdate(
   field: CredentialField,
   value: Credential[CredentialField]
 ): Credential {
-  if (field === 'shared') {
-    return { ...credential, shared: Boolean(value) };
-  }
   return { ...credential, [field]: typeof value === 'string' ? value : String(value ?? '') };
 }
 

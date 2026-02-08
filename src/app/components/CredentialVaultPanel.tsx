@@ -358,21 +358,10 @@ export default function CredentialVaultPanel() {
         flex: 1,
       },
       { headerName: 'Hash', field: 'hash', flex: 2 },
-      { headerName: 'Team', field: 'team', flex: 1 },
       {
         headerName: 'Device',
         field: 'device',
         flex: 1,
-      },
-      {
-        headerName: 'Shared',
-        field: 'shared',
-        width: 110,
-        editable: true,
-        filter: false,
-        cellRenderer: (params: { value: boolean }) => {
-          return params.value ? 'Yes' : 'No';
-        },
       },
     ],
     []
