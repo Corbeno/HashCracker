@@ -12,6 +12,7 @@
     "test": "playwright test"
   },
   "dependencies": {
+    "@floating-ui/react": "^0.27.17",
     "@types/lodash": "^4.17.16",
     "@types/ws": "^8.18.0",
     "ag-grid-community": "^35.0.1",

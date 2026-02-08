@@ -12,8 +12,26 @@ import {
   RowSelectionOptions,
   themeAlpine,
 } from 'ag-grid-community';
+import {
+  autoUpdate,
+  flip,
+  offset,
+  shift,
+  useDismiss,
+  useFloating,
+  useInteractions,
+  useRole,
+} from '@floating-ui/react';
 import { AgGridReact } from 'ag-grid-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+} from 'react';
 
 import useCredentialVault from '@/hooks/useCredentialVault';
 import { Credential } from '@/types/credential';
@@ -23,11 +41,51 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 const theme = themeAlpine.withPart(colorSchemeDark);
 
 export default function CredentialVaultPanel() {
-  const { credentials, addCredential, updateCredential, deleteCredentials } = useCredentialVault();
+  const {
+    tabs,
+    activeTabId,
+    addTab,
+    setActiveTab,
+    renameTab,
+    deleteTab,
+    addCredential,
+    updateCredential,
+    deleteCredentials,
+  } = useCredentialVault();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [quickFilterText, setQuickFilterText] = useState('');
+  const [isCreatingTab, setIsCreatingTab] = useState(false);
+  const [newTabName, setNewTabName] = useState('');
+  const [renamingTabId, setRenamingTabId] = useState<string | null>(null);
+  const [renameTabName, setRenameTabName] = useState('');
+  const [contextMenu, setContextMenu] = useState<{ tabId: string } | null>(null);
   const gridApiRef = useRef<GridApi<Credential> | null>(null);
   const pendingNewRowId = useRef<string | null>(null);
+  const cancelCreateTabOnBlurRef = useRef(false);
+  const cancelRenameTabOnBlurRef = useRef(false);
+  const activeTab = useMemo(
+    () => tabs.find(tab => tab.id === activeTabId) ?? tabs[0],
+    [tabs, activeTabId]
+  );
+  const contextMenuOpen = contextMenu !== null;
+
+  const { refs, floatingStyles, context } = useFloating({
+    open: contextMenuOpen,
+    onOpenChange: open => {
+      if (!open) setContextMenu(null);
+    },
+    placement: 'bottom-start',
+    strategy: 'fixed',
+    middleware: [offset(8), flip({ padding: 8 }), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  });
+
+  const dismiss = useDismiss(context, {
+    outsidePress: true,
+    escapeKey: true,
+  });
+  const role = useRole(context, { role: 'menu' });
+  const { getFloatingProps } = useInteractions([dismiss, role]);
 
   const defaultColDef = useMemo<ColDef<Credential>>(
     () => ({
@@ -75,14 +133,137 @@ export default function CredentialVaultPanel() {
       api.ensureIndexVisible(rowIndex, 'bottom');
       api.startEditingCell({ rowIndex, colKey: 'username' });
     }, 0);
-  }, [credentials]);
+  }, [activeTab?.credentials]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+    setQuickFilterText('');
+    pendingNewRowId.current = null;
+  }, [activeTabId]);
 
   const handleAddRow = useCallback(() => {
+    if (!activeTab) return;
     const newId = crypto.randomUUID();
     pendingNewRowId.current = newId;
     setQuickFilterText('');
-    addCredential(newId);
-  }, [addCredential]);
+    addCredential(activeTab.id, newId);
+  }, [activeTab, addCredential]);
+
+  const handleAddTab = useCallback(() => {
+    cancelCreateTabOnBlurRef.current = false;
+    setContextMenu(null);
+    setRenamingTabId(null);
+    setIsCreatingTab(true);
+    setNewTabName('');
+  }, []);
+
+  const handleCreateTab = useCallback(() => {
+    if (newTabName.trim() === '') {
+      setIsCreatingTab(false);
+      setNewTabName('');
+      return;
+    }
+    addTab(newTabName);
+    setIsCreatingTab(false);
+    setNewTabName('');
+  }, [addTab, newTabName]);
+
+  const handleNewTabInputBlur = useCallback(() => {
+    if (cancelCreateTabOnBlurRef.current) {
+      cancelCreateTabOnBlurRef.current = false;
+      return;
+    }
+    handleCreateTab();
+  }, [handleCreateTab]);
+
+  const handleNewTabInputKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      event.currentTarget.blur();
+    }
+    if (event.key === 'Escape') {
+      cancelCreateTabOnBlurRef.current = true;
+      setIsCreatingTab(false);
+      setNewTabName('');
+    }
+  }, []);
+
+  const handleStartRenameTab = useCallback(
+    (tabId: string) => {
+      const tab = tabs.find(nextTab => nextTab.id === tabId);
+      if (!tab) return;
+      cancelRenameTabOnBlurRef.current = false;
+      setContextMenu(null);
+      setIsCreatingTab(false);
+      setNewTabName('');
+      setRenamingTabId(tab.id);
+      setRenameTabName(tab.name);
+    },
+    [tabs]
+  );
+
+  const handleCommitRenameTab = useCallback(() => {
+    if (!renamingTabId) return;
+    renameTab(renamingTabId, renameTabName);
+    setRenamingTabId(null);
+    setRenameTabName('');
+  }, [renamingTabId, renameTabName, renameTab]);
+
+  const handleRenameTabInputBlur = useCallback(() => {
+    if (cancelRenameTabOnBlurRef.current) {
+      cancelRenameTabOnBlurRef.current = false;
+      return;
+    }
+    handleCommitRenameTab();
+  }, [handleCommitRenameTab]);
+
+  const handleRenameTabInputKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      event.currentTarget.blur();
+    }
+    if (event.key === 'Escape') {
+      cancelRenameTabOnBlurRef.current = true;
+      setRenamingTabId(null);
+      setRenameTabName('');
+    }
+  }, []);
+
+  const handleOpenTabContextMenu = useCallback(
+    (event: ReactMouseEvent<HTMLButtonElement>, tabId: string) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const x = event.clientX;
+      const y = event.clientY;
+      refs.setPositionReference({
+        getBoundingClientRect: () =>
+          ({
+            x,
+            y,
+            top: y,
+            left: x,
+            right: x,
+            bottom: y,
+            width: 0,
+            height: 0,
+            toJSON: () => ({}),
+          }) as DOMRect,
+      });
+      setContextMenu({ tabId });
+    },
+    [refs]
+  );
+
+  const handleDeleteTab = useCallback(
+    (tabId: string) => {
+      if (tabs.length <= 1) return;
+      setContextMenu(null);
+      setRenamingTabId(null);
+      setRenameTabName('');
+      deleteTab(tabId);
+    },
+    [tabs.length, deleteTab]
+  );
 
   const columnDefs = useMemo<ColDef<Credential>[]>(
     () => [
@@ -120,10 +301,11 @@ export default function CredentialVaultPanel() {
   const onCellValueChanged = useCallback(
     (event: CellValueChangedEvent<Credential>) => {
       if (!event.data || !event.colDef.field) return;
+      if (!activeTab) return;
       const field = event.colDef.field as keyof Credential;
-      updateCredential(event.data.id, field, event.newValue);
+      updateCredential(activeTab.id, event.data.id, field, event.newValue);
     },
-    [updateCredential]
+    [activeTab, updateCredential]
   );
 
   const onRowSelected = useCallback((event: RowSelectedEvent<Credential>) => {
@@ -140,10 +322,10 @@ export default function CredentialVaultPanel() {
   }, []);
 
   const handleDeleteSelected = useCallback(() => {
-    if (selectedIds.size === 0) return;
-    deleteCredentials(Array.from(selectedIds));
+    if (!activeTab || selectedIds.size === 0) return;
+    deleteCredentials(activeTab.id, Array.from(selectedIds));
     setSelectedIds(new Set());
-  }, [selectedIds, deleteCredentials]);
+  }, [activeTab, selectedIds, deleteCredentials]);
 
   return (
     <div className="w-full max-w-[1800px] mx-auto h-full bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl border border-gray-700 flex flex-col gap-4">
@@ -168,15 +350,91 @@ export default function CredentialVaultPanel() {
           <button
             onClick={handleAddRow}
             className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+            disabled={!activeTab}
           >
             + Add Row
           </button>
         </div>
       </div>
 
+      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+        {tabs.map(tab => {
+          const isActive = tab.id === activeTabId;
+          const isRenaming = tab.id === renamingTabId;
+          return isRenaming ? (
+            <input
+              key={tab.id}
+              autoFocus
+              value={renameTabName}
+              onChange={event => setRenameTabName(event.target.value)}
+              onBlur={handleRenameTabInputBlur}
+              onKeyDown={handleRenameTabInputKeyDown}
+              className="px-3 py-1.5 rounded-lg text-sm border border-blue-500 bg-gray-800 text-white placeholder-gray-400 focus:outline-none w-32"
+              aria-label="Rename tab"
+            />
+          ) : (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              onContextMenu={event => handleOpenTabContextMenu(event, tab.id)}
+              className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap border transition-colors ${
+                isActive
+                  ? 'bg-blue-600/80 border-blue-500 text-white'
+                  : 'bg-gray-700/60 border-gray-600 text-gray-200 hover:bg-gray-700'
+              }`}
+            >
+              {tab.name}
+            </button>
+          );
+        })}
+        {isCreatingTab ? (
+          <input
+            autoFocus
+            value={newTabName}
+            onChange={event => setNewTabName(event.target.value)}
+            onBlur={handleNewTabInputBlur}
+            onKeyDown={handleNewTabInputKeyDown}
+            placeholder="New tab"
+            className="px-3 py-1.5 rounded-lg text-sm border border-blue-500 bg-gray-800 text-white placeholder-gray-400 focus:outline-none w-32"
+            aria-label="New tab name"
+          />
+        ) : (
+          <button
+            onClick={handleAddTab}
+            className="px-3 py-1.5 rounded-lg text-sm border border-gray-600 text-gray-100 bg-gray-700/50 hover:bg-gray-700 transition-colors"
+            aria-label="Add vault tab"
+          >
+            +
+          </button>
+        )}
+      </div>
+
+      {contextMenu && (
+        <div
+          ref={refs.setFloating}
+          className="fixed z-50 min-w-36 rounded-lg border border-gray-600 bg-gray-900/95 shadow-xl"
+          style={floatingStyles}
+          {...getFloatingProps()}
+        >
+          <button
+            onClick={() => handleStartRenameTab(contextMenu.tabId)}
+            className="w-full text-left px-3 py-2 text-sm text-gray-100 hover:bg-gray-700/80"
+          >
+            Rename Tab
+          </button>
+          <button
+            onClick={() => handleDeleteTab(contextMenu.tabId)}
+            disabled={tabs.length <= 1}
+            className="w-full text-left px-3 py-2 text-sm text-red-300 hover:bg-red-900/30 disabled:text-gray-500 disabled:hover:bg-transparent"
+          >
+            Delete Tab
+          </button>
+        </div>
+      )}
+
       <div className="flex-1 min-h-[300px]" style={{ width: '100%' }}>
         <AgGridReact<Credential>
-          rowData={credentials}
+          rowData={activeTab?.credentials ?? []}
           defaultColDef={defaultColDef}
           columnDefs={columnDefs}
           getRowId={params => params.data.id}
