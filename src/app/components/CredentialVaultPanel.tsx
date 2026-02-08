@@ -1,18 +1,6 @@
 'use client';
 
 import {
-  AllCommunityModule,
-  CellValueChangedEvent,
-  ColDef,
-  colorSchemeDark,
-  GridApi,
-  GridReadyEvent,
-  ModuleRegistry,
-  RowSelectedEvent,
-  RowSelectionOptions,
-  themeAlpine,
-} from 'ag-grid-community';
-import {
   autoUpdate,
   flip,
   offset,
@@ -22,6 +10,24 @@ import {
   useInteractions,
   useRole,
 } from '@floating-ui/react';
+import {
+  AllCommunityModule,
+  CellValueChangedEvent,
+  ColDef,
+  ColumnMovedEvent,
+  ColumnPinnedEvent,
+  ColumnResizedEvent,
+  ColumnVisibleEvent,
+  colorSchemeDark,
+  FilterChangedEvent,
+  GridApi,
+  GridReadyEvent,
+  ModuleRegistry,
+  RowSelectedEvent,
+  RowSelectionOptions,
+  SortChangedEvent,
+  themeAlpine,
+} from 'ag-grid-community';
 import { AgGridReact } from 'ag-grid-react';
 import {
   useCallback,
@@ -39,6 +45,28 @@ import { Credential } from '@/types/credential';
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 const theme = themeAlpine.withPart(colorSchemeDark);
+const GRID_STATE_STORAGE_KEY = 'credentialVault.gridState';
+
+interface CredentialVaultGridState {
+  columnState: ReturnType<GridApi<Credential>['getColumnState']>;
+  filterModel: ReturnType<GridApi<Credential>['getFilterModel']>;
+}
+
+function loadGridState(): CredentialVaultGridState | null {
+  try {
+    const raw = localStorage.getItem(GRID_STATE_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<CredentialVaultGridState>;
+    if (!parsed || typeof parsed !== 'object') return null;
+    if (!Array.isArray(parsed.columnState) || typeof parsed.filterModel !== 'object') return null;
+    return {
+      columnState: parsed.columnState,
+      filterModel: parsed.filterModel,
+    };
+  } catch {
+    return null;
+  }
+}
 
 export default function CredentialVaultPanel() {
   const {
@@ -114,7 +142,21 @@ export default function CredentialVaultPanel() {
 
   const onGridReady = useCallback((params: GridReadyEvent<Credential>) => {
     gridApiRef.current = params.api;
+    const gridState = loadGridState();
+    if (gridState) {
+      params.api.applyColumnState({ state: gridState.columnState, applyOrder: true });
+      params.api.setFilterModel(gridState.filterModel);
+    }
     params.api.sizeColumnsToFit();
+  }, []);
+
+  const persistGridState = useCallback(() => {
+    if (!gridApiRef.current) return;
+    const state: CredentialVaultGridState = {
+      columnState: gridApiRef.current.getColumnState(),
+      filterModel: gridApiRef.current.getFilterModel(),
+    };
+    localStorage.setItem(GRID_STATE_STORAGE_KEY, JSON.stringify(state));
   }, []);
 
   // After credentials updates, if there's a pending new row, scroll to it and start editing
@@ -321,6 +363,49 @@ export default function CredentialVaultPanel() {
     });
   }, []);
 
+  const onFilterChanged = useCallback(
+    (_event: FilterChangedEvent<Credential>) => {
+      persistGridState();
+    },
+    [persistGridState]
+  );
+
+  const onSortChanged = useCallback(
+    (_event: SortChangedEvent<Credential>) => {
+      persistGridState();
+    },
+    [persistGridState]
+  );
+
+  const onColumnMoved = useCallback(
+    (_event: ColumnMovedEvent<Credential>) => {
+      persistGridState();
+    },
+    [persistGridState]
+  );
+
+  const onColumnPinned = useCallback(
+    (_event: ColumnPinnedEvent<Credential>) => {
+      persistGridState();
+    },
+    [persistGridState]
+  );
+
+  const onColumnVisible = useCallback(
+    (_event: ColumnVisibleEvent<Credential>) => {
+      persistGridState();
+    },
+    [persistGridState]
+  );
+
+  const onColumnResized = useCallback(
+    (event: ColumnResizedEvent<Credential>) => {
+      if (!event.finished) return;
+      persistGridState();
+    },
+    [persistGridState]
+  );
+
   const handleDeleteSelected = useCallback(() => {
     if (!activeTab || selectedIds.size === 0) return;
     deleteCredentials(activeTab.id, Array.from(selectedIds));
@@ -441,6 +526,12 @@ export default function CredentialVaultPanel() {
           onGridReady={onGridReady}
           onCellValueChanged={onCellValueChanged}
           onRowSelected={onRowSelected}
+          onFilterChanged={onFilterChanged}
+          onSortChanged={onSortChanged}
+          onColumnMoved={onColumnMoved}
+          onColumnPinned={onColumnPinned}
+          onColumnVisible={onColumnVisible}
+          onColumnResized={onColumnResized}
           rowSelection={rowSelection}
           singleClickEdit={true}
           rowNumbers={true}

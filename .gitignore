@@ -51,6 +51,7 @@ Thumbs.db
 desktop.ini
 
 # hash-cracker specific
+/data/credential-vault.json
 /data/hashes/*
 /data/wordlists/*
 /data/rules/*

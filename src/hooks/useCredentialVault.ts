@@ -1,257 +1,226 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { Credential } from '@/types/credential';
+import {
+  Credential,
+  CredentialVaultDocument,
+  CredentialVaultMutation,
+  CredentialVaultTab,
+} from '@/types/credentialVault';
 
-const STORAGE_KEY = 'credentialVaultTabs';
+const ACTIVE_TAB_STORAGE_KEY = 'credentialVault.activeTabId';
 
-interface CredentialVaultTab {
-  id: string;
-  name: string;
-  credentials: Credential[];
+interface CredentialVaultResponse {
+  vault: CredentialVaultDocument;
 }
 
-interface CredentialVaultState {
-  tabs: CredentialVaultTab[];
-  activeTabId: string;
+function resolveActiveTabId(
+  tabs: CredentialVaultTab[],
+  currentActiveTabId: string,
+  preferredTabId?: string
+): string {
+  if (preferredTabId && tabs.some(tab => tab.id === preferredTabId)) {
+    return preferredTabId;
+  }
+
+  if (currentActiveTabId && tabs.some(tab => tab.id === currentActiveTabId)) {
+    return currentActiveTabId;
+  }
+
+  return tabs[0]?.id ?? '';
 }
 
-function makeSharedTab(credentials: Credential[] = []): CredentialVaultTab {
-  return {
-    id: crypto.randomUUID(),
-    name: 'Shared',
-    credentials,
-  };
-}
-
-function isCredential(value: unknown): value is Credential {
-  if (!value || typeof value !== 'object') return false;
-  const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.id === 'string' &&
-    typeof candidate.username === 'string' &&
-    typeof candidate.password === 'string' &&
-    typeof candidate.hash === 'string' &&
-    typeof candidate.team === 'string' &&
-    typeof candidate.device === 'string' &&
-    typeof candidate.shared === 'boolean'
-  );
-}
-
-function sanitizeCredentials(value: unknown): Credential[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter(isCredential);
-}
-
-function isTab(value: unknown): value is CredentialVaultTab {
-  if (!value || typeof value !== 'object') return false;
-  const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.id === 'string' &&
-    typeof candidate.name === 'string' &&
-    Array.isArray(candidate.credentials)
-  );
-}
-
-function parseStoredState(raw: string): CredentialVaultState | null {
-  const parsed = JSON.parse(raw) as Partial<CredentialVaultState>;
-  const tabs = Array.isArray(parsed.tabs)
-    ? parsed.tabs
-        .filter(isTab)
-        .map(tab => ({ ...tab, credentials: sanitizeCredentials(tab.credentials) }))
-    : [];
-  if (tabs.length === 0) return null;
-  const activeTabId =
-    typeof parsed.activeTabId === 'string' && tabs.some(tab => tab.id === parsed.activeTabId)
-      ? parsed.activeTabId
-      : tabs[0].id;
-  return { tabs, activeTabId };
-}
-
-function loadState(): CredentialVaultState {
+async function fetchVaultSnapshot(): Promise<CredentialVaultDocument | null> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) {
-      const parsedState = parseStoredState(raw);
-      if (parsedState) {
-        return parsedState;
-      }
-    }
-
-    const sharedTab = makeSharedTab();
-    const migrated = {
-      tabs: [sharedTab],
-      activeTabId: sharedTab.id,
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
-    return migrated;
+    const response = await fetch('/api/credential-vault', { cache: 'no-store' });
+    if (!response.ok) return null;
+    const payload = (await response.json()) as CredentialVaultResponse;
+    if (!payload?.vault || !Array.isArray(payload.vault.tabs)) return null;
+    return payload.vault;
   } catch {
-    const sharedTab = makeSharedTab();
-    return {
-      tabs: [sharedTab],
-      activeTabId: sharedTab.id,
-    };
+    return null;
   }
 }
 
-function saveState(state: CredentialVaultState): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-}
-
 export default function useCredentialVault() {
-  const [state, setState] = useState<CredentialVaultState>(loadState);
+  const [tabs, setTabs] = useState<CredentialVaultTab[]>([]);
+  const [activeTabId, setActiveTabIdState] = useState('');
+  const tabsRef = useRef<CredentialVaultTab[]>([]);
+  const activeTabIdRef = useRef('');
 
-  const setAndSaveState = useCallback(
-    (updater: (prev: CredentialVaultState) => CredentialVaultState) => {
-      setState(prev => {
-        const next = updater(prev);
-        saveState(next);
-        return next;
-      });
+  const setActiveTabId = useCallback((tabId: string) => {
+    setActiveTabIdState(tabId);
+    activeTabIdRef.current = tabId;
+    localStorage.setItem(ACTIVE_TAB_STORAGE_KEY, tabId);
+  }, []);
+
+  const applySnapshot = useCallback(
+    (nextTabs: CredentialVaultTab[], preferredTabId?: string) => {
+      tabsRef.current = nextTabs;
+      setTabs(nextTabs);
+      const nextActiveTabId = resolveActiveTabId(nextTabs, activeTabIdRef.current, preferredTabId);
+      setActiveTabId(nextActiveTabId);
     },
-    []
+    [setActiveTabId]
+  );
+
+  const mutateVault = useCallback(
+    async (mutation: CredentialVaultMutation, preferredTabId?: string): Promise<void> => {
+      try {
+        const response = await fetch('/api/credential-vault', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mutation }),
+        });
+        if (!response.ok) {
+          return;
+        }
+        const payload = (await response.json()) as CredentialVaultResponse;
+        if (!payload?.vault || !Array.isArray(payload.vault.tabs)) {
+          return;
+        }
+        applySnapshot(payload.vault.tabs, preferredTabId);
+      } catch {
+        // Ignore network errors. SSE or next user action can recover state.
+      }
+    },
+    [applySnapshot]
   );
 
   useEffect(() => {
-    const onStorage = (event: StorageEvent) => {
-      if (event.key !== STORAGE_KEY || !event.newValue) return;
+    const storedTabId = localStorage.getItem(ACTIVE_TAB_STORAGE_KEY) ?? '';
+    activeTabIdRef.current = storedTabId;
+    setActiveTabIdState(storedTabId);
+
+    fetchVaultSnapshot().then(vault => {
+      if (!vault) return;
+      applySnapshot(vault.tabs);
+    });
+
+    const onCredentialVaultUpdate = (event: Event) => {
       try {
-        const nextState = parseStoredState(event.newValue);
-        if (!nextState) return;
-        setState(nextState);
+        const detail = (event as CustomEvent<string>).detail;
+        if (typeof detail !== 'string') return;
+        const payload = JSON.parse(detail) as CredentialVaultResponse;
+        if (!payload?.vault || !Array.isArray(payload.vault.tabs)) return;
+        applySnapshot(payload.vault.tabs);
       } catch {
-        // Ignore invalid storage payloads.
+        // Ignore malformed payloads.
       }
     };
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
-  }, []);
+
+    window.addEventListener('credentialVaultUpdated', onCredentialVaultUpdate);
+
+    return () => {
+      window.removeEventListener('credentialVaultUpdated', onCredentialVaultUpdate);
+    };
+  }, [applySnapshot]);
 
   const addTab = useCallback(
     (name?: string) => {
-      setAndSaveState(prev => {
-        const trimmedName = name?.trim();
-        const newTab = {
-          id: crypto.randomUUID(),
-          name: trimmedName && trimmedName.length > 0 ? trimmedName : `Tab ${prev.tabs.length + 1}`,
-          credentials: [],
-        };
-        return {
-          tabs: [...prev.tabs, newTab],
-          activeTabId: newTab.id,
-        };
+      const previousIds = new Set(tabsRef.current.map(tab => tab.id));
+      mutateVault({ type: 'tab.create', payload: { name } }).then(() => {
+        const nextTab = tabsRef.current.find(tab => !previousIds.has(tab.id));
+        if (nextTab) {
+          setActiveTabId(nextTab.id);
+        }
       });
     },
-    [setAndSaveState]
+    [mutateVault, setActiveTabId]
   );
 
   const setActiveTab = useCallback(
     (tabId: string) => {
-      setAndSaveState(prev => {
-        if (!prev.tabs.some(tab => tab.id === tabId)) return prev;
-        if (prev.activeTabId === tabId) return prev;
-        return { ...prev, activeTabId: tabId };
-      });
+      if (!tabsRef.current.some(tab => tab.id === tabId)) return;
+      setActiveTabId(tabId);
     },
-    [setAndSaveState]
+    [setActiveTabId]
   );
 
   const renameTab = useCallback(
     (tabId: string, name: string) => {
       const trimmedName = name.trim();
       if (!trimmedName) return;
-      setAndSaveState(prev => {
-        const nextTabs = prev.tabs.map(tab =>
-          tab.id === tabId
-            ? {
-                ...tab,
-                name: trimmedName,
-              }
-            : tab
-        );
-        return {
-          ...prev,
-          tabs: nextTabs,
-        };
+      void mutateVault({
+        type: 'tab.rename',
+        payload: {
+          tabId,
+          name: trimmedName,
+        },
       });
     },
-    [setAndSaveState]
+    [mutateVault]
   );
 
   const deleteTab = useCallback(
     (tabId: string) => {
-      setAndSaveState(prev => {
-        if (prev.tabs.length <= 1) return prev;
-        const deletedIndex = prev.tabs.findIndex(tab => tab.id === tabId);
-        if (deletedIndex === -1) return prev;
-        const nextTabs = prev.tabs.filter(tab => tab.id !== tabId);
-        const fallbackTab = nextTabs[Math.max(0, deletedIndex - 1)] ?? nextTabs[0];
-        const nextActiveTabId = prev.activeTabId === tabId ? fallbackTab.id : prev.activeTabId;
-        return {
-          tabs: nextTabs,
-          activeTabId: nextActiveTabId,
-        };
-      });
+      const currentTabs = tabsRef.current;
+      if (currentTabs.length <= 1) return;
+      const deletedIndex = currentTabs.findIndex(tab => tab.id === tabId);
+      if (deletedIndex === -1) return;
+
+      const remainingTabs = currentTabs.filter(tab => tab.id !== tabId);
+      const fallbackTab = remainingTabs[Math.max(0, deletedIndex - 1)] ?? remainingTabs[0];
+      const preferredTabId =
+        activeTabIdRef.current === tabId ? fallbackTab.id : activeTabIdRef.current;
+
+      void mutateVault(
+        {
+          type: 'tab.delete',
+          payload: {
+            tabId,
+          },
+        },
+        preferredTabId
+      );
     },
-    [setAndSaveState]
+    [mutateVault]
   );
 
   const addCredential = useCallback(
     (tabId: string, id?: string) => {
-      const blank: Credential = {
-        id: id ?? crypto.randomUUID(),
-        username: '',
-        password: '',
-        hash: '',
-        team: '',
-        device: '',
-        shared: false,
-      };
-      setAndSaveState(prev => {
-        const nextTabs = prev.tabs.map(tab =>
-          tab.id === tabId ? { ...tab, credentials: [...tab.credentials, blank] } : tab
-        );
-        return { ...prev, tabs: nextTabs };
+      void mutateVault({
+        type: 'credential.create',
+        payload: {
+          tabId,
+          credentialId: id,
+        },
       });
     },
-    [setAndSaveState]
+    [mutateVault]
   );
 
   const updateCredential = useCallback(
     (tabId: string, id: string, field: keyof Credential, value: unknown) => {
-      setAndSaveState(prev => {
-        const nextTabs = prev.tabs.map(tab => {
-          if (tab.id !== tabId) return tab;
-          return {
-            ...tab,
-            credentials: tab.credentials.map(c => (c.id === id ? { ...c, [field]: value } : c)),
-          };
-        });
-        return { ...prev, tabs: nextTabs };
+      void mutateVault({
+        type: 'credential.update',
+        payload: {
+          tabId,
+          credentialId: id,
+          field,
+          value: value as Credential[keyof Credential],
+        },
       });
     },
-    [setAndSaveState]
+    [mutateVault]
   );
 
   const deleteCredentials = useCallback(
     (tabId: string, ids: string[]) => {
-      const idSet = new Set(ids);
-      setAndSaveState(prev => {
-        const nextTabs = prev.tabs.map(tab => {
-          if (tab.id !== tabId) return tab;
-          return {
-            ...tab,
-            credentials: tab.credentials.filter(c => !idSet.has(c.id)),
-          };
-        });
-        return { ...prev, tabs: nextTabs };
+      if (ids.length === 0) return;
+      void mutateVault({
+        type: 'credential.deleteMany',
+        payload: {
+          tabId,
+          credentialIds: ids,
+        },
       });
     },
-    [setAndSaveState]
+    [mutateVault]
   );
 
   return {
-    tabs: state.tabs,
-    activeTabId: state.activeTabId,
+    tabs,
+    activeTabId,
     addTab,
     setActiveTab,
     renameTab,

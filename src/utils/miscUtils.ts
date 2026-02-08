@@ -17,6 +17,10 @@ declare global {
 }
 
 export function sendEventToAll(event: string, data: any) {
+  if (!global.eventClients) {
+    global.eventClients = new Set<SSEClient>();
+  }
+
   global.eventClients.forEach((client: SSEClient) => {
     try {
       client.controller.enqueue(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);

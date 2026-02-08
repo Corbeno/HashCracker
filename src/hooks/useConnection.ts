@@ -170,6 +170,18 @@ export default function useConnection(): UseConnectionResult {
             console.error('Error handling system info event:', error);
           }
         });
+
+        // Forward credential vault updates to any frontend listeners.
+        eventSource.addEventListener('credentialVaultUpdated', e => {
+          try {
+            const credentialVaultEvent = new CustomEvent('credentialVaultUpdated', {
+              detail: e.data,
+            });
+            window.dispatchEvent(credentialVaultEvent);
+          } catch (error) {
+            console.error('Error handling credentialVaultUpdated event:', error);
+          }
+        });
       } catch (error) {
         console.error('Error initializing event source:', error);
         setConnectedStatus('disconnected');
