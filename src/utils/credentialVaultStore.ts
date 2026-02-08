@@ -1,8 +1,33 @@
-import fs from 'fs';
-import path from 'path';
-
 import { isEqual } from 'lodash';
 
+import {
+  countTabs,
+  CredentialUpdateParams,
+  deleteAllCredentials,
+  deleteAllTabs,
+  deleteCredentialInTab,
+  deleteCredentialsForTab,
+  deleteTabById,
+  getAllCredentials,
+  getAllTabs,
+  getBlankPasswordCredentialsByHashType,
+  getCredentialInTab,
+  getCredentialsForTab,
+  getMaxCredentialPositionForTab,
+  getMaxTabPosition,
+  insertCredential,
+  insertTab,
+  renameTabIfChanged,
+  tabExists,
+  updateCredentialIfChanged,
+  updateCredentialPasswordById,
+  withVaultTransaction,
+} from './credentialVaultDb';
+import {
+  buildCredentialVaultDocument,
+  mapVaultCredentialRowToCredential,
+  normalizeHashTypeValue,
+} from './credentialVaultMapper';
 import { logger } from './logger';
 
 import {
@@ -15,18 +40,6 @@ import {
 import { LogImportResult, LogImportType } from '@/types/logImport';
 import { mergeImportedCredentials } from '@/utils/logImport/merge';
 import { parseImpacketNtlmLog } from '@/utils/logImport/parsers/impacketNtlm';
-
-const VAULT_FILE_PATH = path.join(process.cwd(), 'data', 'credential-vault.json');
-
-let cachedVault: CredentialVaultDocument | null = null;
-
-function sanitizeHashTypeValue(value: unknown): number | null {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return Math.trunc(value);
-  }
-
-  return null;
-}
 
 function buildBlankCredential(id?: string): Credential {
   return {
@@ -49,135 +62,56 @@ function makeSharedTab(credentials: Credential[] = []): CredentialVaultTab {
 
 function createInitialDocument(): CredentialVaultDocument {
   return {
-    schemaVersion: 1,
-    revision: 0,
-    updatedAt: new Date().toISOString(),
     tabs: [makeSharedTab()],
   };
 }
 
-function isCredential(value: unknown): value is Credential {
-  if (!value || typeof value !== 'object') return false;
-  const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.id === 'string' &&
-    typeof candidate.username === 'string' &&
-    typeof candidate.password === 'string' &&
-    typeof candidate.hash === 'string' &&
-    (typeof candidate.hashType === 'number' ||
-      candidate.hashType === null ||
-      candidate.hashType === undefined) &&
-    typeof candidate.device === 'string'
-  );
-}
-
-function sanitizeCredentials(value: unknown): Credential[] {
-  if (!Array.isArray(value)) return [];
-  return value.filter(isCredential).map(credential => ({
-    id: credential.id,
-    username: credential.username,
-    password: credential.password,
-    hash: credential.hash,
-    hashType: sanitizeHashTypeValue(credential.hashType),
-    device: credential.device,
-  }));
-}
-
-function isTab(value: unknown): value is CredentialVaultTab {
-  if (!value || typeof value !== 'object') return false;
-  const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.id === 'string' &&
-    typeof candidate.name === 'string' &&
-    Array.isArray(candidate.credentials)
-  );
-}
-
-function sanitizeTabs(value: unknown): CredentialVaultTab[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .filter(isTab)
-    .map(tab => ({ ...tab, credentials: sanitizeCredentials(tab.credentials) }));
-}
-
-function sanitizeDocument(value: unknown): CredentialVaultDocument {
-  if (!value || typeof value !== 'object') return createInitialDocument();
-  const candidate = value as Record<string, unknown>;
-  const tabs = sanitizeTabs(candidate.tabs);
-  return {
-    schemaVersion: 1,
-    revision:
-      typeof candidate.revision === 'number' && Number.isFinite(candidate.revision)
-        ? candidate.revision
-        : 0,
-    updatedAt:
-      typeof candidate.updatedAt === 'string' ? candidate.updatedAt : new Date().toISOString(),
-    tabs: tabs.length > 0 ? tabs : [makeSharedTab()],
-  };
-}
-
-function cloneVault(vault: CredentialVaultDocument): CredentialVaultDocument {
-  return {
-    schemaVersion: 1,
-    revision: vault.revision,
-    updatedAt: vault.updatedAt,
-    tabs: vault.tabs.map(tab => ({
-      id: tab.id,
-      name: tab.name,
-      credentials: tab.credentials.map(credential => ({ ...credential })),
-    })),
-  };
-}
-
-function ensureVaultFileParentExists(): void {
-  const directory = path.dirname(VAULT_FILE_PATH);
-  if (!fs.existsSync(directory)) {
-    fs.mkdirSync(directory, { recursive: true });
+function initializeVaultIfEmpty(): void {
+  if (countTabs() > 0) {
+    return;
   }
+
+  const initial = createInitialDocument();
+  writeVaultToDatabase(initial);
 }
 
-function writeVaultToDisk(vault: CredentialVaultDocument): void {
-  ensureVaultFileParentExists();
-  const tempFilePath = `${VAULT_FILE_PATH}.tmp`;
-  fs.writeFileSync(tempFilePath, JSON.stringify(vault, null, 2), 'utf8');
-  fs.renameSync(tempFilePath, VAULT_FILE_PATH);
-}
+function writeVaultToDatabase(vault: CredentialVaultDocument): void {
+  withVaultTransaction(() => {
+    deleteAllCredentials();
+    deleteAllTabs();
 
-function loadVaultFromDisk(): CredentialVaultDocument {
-  try {
-    if (!fs.existsSync(VAULT_FILE_PATH)) {
-      const initial = createInitialDocument();
-      writeVaultToDisk(initial);
-      return initial;
+    for (let tabPosition = 0; tabPosition < vault.tabs.length; tabPosition += 1) {
+      const tab = vault.tabs[tabPosition];
+      insertTab({
+        id: tab.id,
+        name: tab.name,
+        position: tabPosition,
+      });
+
+      for (
+        let credentialPosition = 0;
+        credentialPosition < tab.credentials.length;
+        credentialPosition += 1
+      ) {
+        const credential = tab.credentials[credentialPosition];
+        insertCredential({
+          id: credential.id,
+          tabId: tab.id,
+          username: credential.username,
+          password: credential.password,
+          hash: credential.hash,
+          hashType: normalizeHashTypeValue(credential.hashType),
+          device: credential.device,
+          position: credentialPosition,
+        });
+      }
     }
-
-    const raw = fs.readFileSync(VAULT_FILE_PATH, 'utf8');
-    const parsed = JSON.parse(raw) as unknown;
-    const sanitized = sanitizeDocument(parsed);
-    if (!isEqual(parsed, sanitized)) {
-      writeVaultToDisk(sanitized);
-    }
-    return sanitized;
-  } catch {
-    const fallback = createInitialDocument();
-    writeVaultToDisk(fallback);
-    return fallback;
-  }
+  });
 }
 
-function getMutableVault(): CredentialVaultDocument {
-  if (!cachedVault) {
-    cachedVault = loadVaultFromDisk();
-  }
-  return cachedVault;
-}
-
-function withDocumentMetadata(vault: CredentialVaultDocument): CredentialVaultDocument {
-  return {
-    ...vault,
-    revision: vault.revision + 1,
-    updatedAt: new Date().toISOString(),
-  };
+function loadVaultFromDatabase(): CredentialVaultDocument {
+  initializeVaultIfEmpty();
+  return buildCredentialVaultDocument(getAllTabs(), getAllCredentials());
 }
 
 function applyCredentialUpdate(
@@ -186,8 +120,9 @@ function applyCredentialUpdate(
   value: Credential[CredentialField]
 ): Credential {
   if (field === 'hashType') {
-    return { ...credential, hashType: sanitizeHashTypeValue(value) };
+    return { ...credential, hashType: normalizeHashTypeValue(value) };
   }
+
   return { ...credential, [field]: typeof value === 'string' ? value : String(value ?? '') };
 }
 
@@ -201,102 +136,125 @@ function emptyImportResult(): LogImportResult {
   };
 }
 
-export function getCredentialVaultSnapshot(): CredentialVaultDocument {
-  return cloneVault(getMutableVault());
+export function readCredentialVault(): CredentialVaultDocument {
+  return loadVaultFromDatabase();
 }
 
 export function applyCredentialVaultMutation(
   mutation: CredentialVaultMutation
 ): CredentialVaultDocument {
-  const current = getMutableVault();
-  let next: CredentialVaultDocument = cloneVault(current);
+  const current = loadVaultFromDatabase();
+  let changed = false;
 
-  switch (mutation.type) {
-    case 'tab.create': {
-      const trimmedName = mutation.payload.name?.trim();
-      const name =
-        trimmedName && trimmedName.length > 0 ? trimmedName : `Tab ${next.tabs.length + 1}`;
-      next.tabs.push({ id: crypto.randomUUID(), name, credentials: [] });
-      break;
-    }
-    case 'tab.rename': {
-      const trimmedName = mutation.payload.name.trim();
-      if (!trimmedName) {
-        return cloneVault(current);
+  withVaultTransaction(() => {
+    switch (mutation.type) {
+      case 'tab.create': {
+        const trimmedName = mutation.payload.name?.trim();
+        const name = trimmedName && trimmedName.length > 0 ? trimmedName : `Tab ${countTabs() + 1}`;
+        const tabId = crypto.randomUUID();
+        const credential = buildBlankCredential();
+
+        insertTab({
+          id: tabId,
+          name,
+          position: getMaxTabPosition() + 1,
+        });
+        insertCredential({
+          id: credential.id,
+          tabId,
+          username: credential.username,
+          password: credential.password,
+          hash: credential.hash,
+          hashType: credential.hashType,
+          device: credential.device,
+          position: 0,
+        });
+
+        changed = true;
+        return;
       }
-      next.tabs = next.tabs.map(tab =>
-        tab.id === mutation.payload.tabId
-          ? {
-              ...tab,
-              name: trimmedName,
-            }
-          : tab
-      );
-      break;
-    }
-    case 'tab.delete': {
-      if (next.tabs.length <= 1) {
-        return cloneVault(current);
+
+      case 'tab.rename': {
+        const trimmedName = mutation.payload.name.trim();
+        if (!trimmedName) return;
+        changed = renameTabIfChanged({ id: mutation.payload.tabId, name: trimmedName }) > 0;
+        return;
       }
-      const deleted = next.tabs.some(tab => tab.id === mutation.payload.tabId);
-      if (!deleted) {
-        return cloneVault(current);
+
+      case 'tab.delete': {
+        if (countTabs() <= 1) return;
+        changed = deleteTabById(mutation.payload.tabId) > 0;
+        return;
       }
-      next.tabs = next.tabs.filter(tab => tab.id !== mutation.payload.tabId);
-      break;
-    }
-    case 'credential.create': {
-      next.tabs = next.tabs.map(tab =>
-        tab.id === mutation.payload.tabId
-          ? {
-              ...tab,
-              credentials: [
-                ...tab.credentials,
-                buildBlankCredential(mutation.payload.credentialId),
-              ],
-            }
-          : tab
-      );
-      break;
-    }
-    case 'credential.update': {
-      next.tabs = next.tabs.map(tab => {
-        if (tab.id !== mutation.payload.tabId) return tab;
-        return {
-          ...tab,
-          credentials: tab.credentials.map(credential =>
-            credential.id === mutation.payload.credentialId
-              ? applyCredentialUpdate(credential, mutation.payload.field, mutation.payload.value)
-              : credential
-          ),
+
+      case 'credential.create': {
+        if (!tabExists(mutation.payload.tabId)) return;
+
+        const credential = buildBlankCredential(mutation.payload.credentialId);
+        insertCredential({
+          id: credential.id,
+          tabId: mutation.payload.tabId,
+          username: credential.username,
+          password: credential.password,
+          hash: credential.hash,
+          hashType: credential.hashType,
+          device: credential.device,
+          position: getMaxCredentialPositionForTab(mutation.payload.tabId) + 1,
+        });
+
+        changed = true;
+        return;
+      }
+
+      case 'credential.update': {
+        const currentCredentialRow = getCredentialInTab(
+          mutation.payload.tabId,
+          mutation.payload.credentialId
+        );
+        if (!currentCredentialRow) return;
+
+        const nextCredential = applyCredentialUpdate(
+          mapVaultCredentialRowToCredential(currentCredentialRow),
+          mutation.payload.field,
+          mutation.payload.value
+        );
+
+        const updatePayload: CredentialUpdateParams = {
+          tabId: mutation.payload.tabId,
+          credentialId: mutation.payload.credentialId,
+          username: nextCredential.username,
+          password: nextCredential.password,
+          hash: nextCredential.hash,
+          hashType: nextCredential.hashType,
+          device: nextCredential.device,
         };
-      });
-      break;
+
+        changed = updateCredentialIfChanged(updatePayload) > 0;
+        return;
+      }
+
+      case 'credential.deleteMany': {
+        if (mutation.payload.credentialIds.length === 0) return;
+
+        let deletedCount = 0;
+        for (const credentialId of mutation.payload.credentialIds) {
+          deletedCount += deleteCredentialInTab(mutation.payload.tabId, credentialId);
+        }
+
+        changed = deletedCount > 0;
+        return;
+      }
+
+      default:
+        return;
     }
-    case 'credential.deleteMany': {
-      const idSet = new Set(mutation.payload.credentialIds);
-      next.tabs = next.tabs.map(tab =>
-        tab.id === mutation.payload.tabId
-          ? {
-              ...tab,
-              credentials: tab.credentials.filter(credential => !idSet.has(credential.id)),
-            }
-          : tab
-      );
-      break;
-    }
-    default:
-      return cloneVault(current);
+  });
+
+  if (!changed) {
+    return current;
   }
 
-  if (isEqual(next, current)) {
-    return cloneVault(current);
-  }
-
-  next = withDocumentMetadata(next);
-  cachedVault = next;
-  writeVaultToDisk(next);
-  return cloneVault(next);
+  return loadVaultFromDatabase();
 }
 
 export function applyCredentialVaultLogImport(
@@ -304,35 +262,42 @@ export function applyCredentialVaultLogImport(
   logType: LogImportType,
   rawLog: string
 ): { vault: CredentialVaultDocument; result: LogImportResult } {
-  const current = getMutableVault();
-  const next = cloneVault(current);
-  const tabIndex = next.tabs.findIndex(tab => tab.id === tabId);
-
-  if (tabIndex === -1) {
-    return { vault: cloneVault(current), result: emptyImportResult() };
+  if (!tabExists(tabId)) {
+    return { vault: loadVaultFromDatabase(), result: emptyImportResult() };
   }
 
   let parsedRecords: ReturnType<typeof parseImpacketNtlmLog>;
   if (logType === 'impacket-ntlm') {
     parsedRecords = parseImpacketNtlmLog(rawLog);
   } else {
-    return { vault: cloneVault(current), result: emptyImportResult() };
+    return { vault: loadVaultFromDatabase(), result: emptyImportResult() };
   }
 
-  const merged = mergeImportedCredentials(next.tabs[tabIndex].credentials, parsedRecords);
-  next.tabs[tabIndex] = {
-    ...next.tabs[tabIndex],
-    credentials: merged.nextCredentials,
-  };
+  const currentCredentials = getCredentialsForTab(tabId).map(mapVaultCredentialRowToCredential);
+  const merged = mergeImportedCredentials(currentCredentials, parsedRecords);
 
-  if (isEqual(next, current)) {
-    return { vault: cloneVault(current), result: merged.result };
+  if (isEqual(merged.nextCredentials, currentCredentials)) {
+    return { vault: loadVaultFromDatabase(), result: merged.result };
   }
 
-  const withMetadata = withDocumentMetadata(next);
-  cachedVault = withMetadata;
-  writeVaultToDisk(withMetadata);
-  return { vault: cloneVault(withMetadata), result: merged.result };
+  withVaultTransaction(() => {
+    deleteCredentialsForTab(tabId);
+    for (let position = 0; position < merged.nextCredentials.length; position += 1) {
+      const credential = merged.nextCredentials[position];
+      insertCredential({
+        id: credential.id,
+        tabId,
+        username: credential.username,
+        password: credential.password,
+        hash: credential.hash,
+        hashType: normalizeHashTypeValue(credential.hashType),
+        device: credential.device,
+        position,
+      });
+    }
+  });
+
+  return { vault: loadVaultFromDatabase(), result: merged.result };
 }
 
 export function applyCrackedPasswordsToCredentialVault(
@@ -340,14 +305,10 @@ export function applyCrackedPasswordsToCredentialVault(
   crackedResults: Array<{ hash: string; password: string }>
 ): { vault: CredentialVaultDocument; updatedCount: number } {
   if (crackedResults.length === 0) {
-    const current = getMutableVault();
-    return { vault: cloneVault(current), updatedCount: 0 };
+    return { vault: loadVaultFromDatabase(), updatedCount: 0 };
   }
 
-  const current = getMutableVault();
-  const next = cloneVault(current);
   const crackedByHash = new Map<string, string>();
-
   for (const result of crackedResults) {
     const normalizedHash = result.hash.trim().toLowerCase();
     if (!normalizedHash) continue;
@@ -356,34 +317,25 @@ export function applyCrackedPasswordsToCredentialVault(
 
   logger.debug('Applying cracked passwords to vault. Cracked count: ', crackedByHash.size);
 
-  logger.debug('REEEEEEEEE: ', { hashType, crackedResults, next });
+  const candidates = getBlankPasswordCredentialsByHashType(hashType);
+  const updates = candidates
+    .map(candidate => {
+      const crackedPassword = crackedByHash.get(candidate.hash.trim().toLowerCase());
+      if (crackedPassword == null) return null;
+      return { id: candidate.id, password: crackedPassword };
+    })
+    .filter((entry): entry is { id: string; password: string } => entry != null);
 
-  let updatedCount = 0;
-  next.tabs = next.tabs.map(tab => ({
-    ...tab,
-    credentials: tab.credentials.map(credential => {
-      if (credential.hashType !== hashType) return credential;
-      if (credential.password.trim() !== '') return credential;
-
-      const crackedPassword = crackedByHash.get(credential.hash.trim().toLowerCase());
-      if (crackedPassword == null) return credential;
-
-      updatedCount += 1;
-      return {
-        ...credential,
-        password: crackedPassword,
-      };
-    }),
-  }));
-
-  logger.debug(`Finished applying cracked passwords. Updated credentials count: ${updatedCount}`);
-
-  if (updatedCount === 0 || isEqual(next, current)) {
-    return { vault: cloneVault(current), updatedCount: 0 };
+  if (updates.length === 0) {
+    return { vault: loadVaultFromDatabase(), updatedCount: 0 };
   }
 
-  const withMetadata = withDocumentMetadata(next);
-  cachedVault = withMetadata;
-  writeVaultToDisk(withMetadata);
-  return { vault: cloneVault(withMetadata), updatedCount };
+  withVaultTransaction(() => {
+    for (const row of updates) {
+      updateCredentialPasswordById(row.id, row.password);
+    }
+  });
+
+  logger.debug(`Finished applying cracked passwords. Updated credentials count: ${updates.length}`);
+  return { vault: loadVaultFromDatabase(), updatedCount: updates.length };
 }

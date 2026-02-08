@@ -52,6 +52,9 @@ desktop.ini
 
 # hash-cracker specific
 /data/credential-vault.json
+/data/credential-vault.sqlite
+/data/credential-vault.sqlite-shm
+/data/credential-vault.sqlite-wal
 /data/hashes/*
 /data/wordlists/*
 /data/rules/*

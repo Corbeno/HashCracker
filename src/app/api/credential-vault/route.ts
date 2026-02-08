@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { CredentialVaultMutation } from '@/types/credentialVault';
-import {
-  applyCredentialVaultMutation,
-  getCredentialVaultSnapshot,
-} from '@/utils/credentialVaultStore';
+import { applyCredentialVaultMutation, readCredentialVault } from '@/utils/credentialVaultStore';
 import { sendEventToAll } from '@/utils/miscUtils';
 
 interface CredentialVaultMutationRequest {
@@ -15,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export const preferredRegion = 'auto';
 
 export async function GET(_req: NextRequest) {
-  const vault = getCredentialVaultSnapshot();
+  const vault = readCredentialVault();
   return NextResponse.json({ vault });
 }
 

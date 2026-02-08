@@ -14,9 +14,6 @@ export interface CredentialVaultTab {
 }
 
 export interface CredentialVaultDocument {
-  schemaVersion: 1;
-  revision: number;
-  updatedAt: string;
   tabs: CredentialVaultTab[];
 }
 
