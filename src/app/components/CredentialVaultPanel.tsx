@@ -73,6 +73,16 @@ function loadGridState(): CredentialVaultGridState | null {
   }
 }
 
+function hasAnyCredentialData(credential: Record<string, unknown>): boolean {
+  return [
+    credential.username,
+    credential.password,
+    credential.hash,
+    credential.hashType,
+    credential.device,
+  ].some(value => String(value ?? '').trim() !== '');
+}
+
 export default function CredentialVaultPanel() {
   const router = useRouter();
   const pathname = usePathname();
@@ -99,6 +109,7 @@ export default function CredentialVaultPanel() {
   const [isLogImportModalOpen, setIsLogImportModalOpen] = useState(false);
   const gridApiRef = useRef<GridApi<Credential> | null>(null);
   const pendingNewRowId = useRef<string | null>(null);
+  const pendingAutoAppendFromRowId = useRef<string | null>(null);
   const cancelCreateTabOnBlurRef = useRef(false);
   const cancelRenameTabOnBlurRef = useRef(false);
   const activeTab = useMemo(
@@ -207,6 +218,11 @@ export default function CredentialVaultPanel() {
       api.startEditingCell({ rowIndex, colKey: 'username' });
     }, 0);
   }, [activeTab?.credentials]);
+
+  useEffect(() => {
+    if (!pendingAutoAppendFromRowId.current) return;
+    pendingAutoAppendFromRowId.current = null;
+  }, [activeTab?.credentials.length]);
 
   useEffect(() => {
     setSelectedIds(new Set());
@@ -387,9 +403,27 @@ export default function CredentialVaultPanel() {
       if (!event.data || !event.colDef.field) return;
       if (!activeTab) return;
       const field = event.colDef.field as keyof Credential;
-      updateCredential(activeTab.id, event.data.id, field, event.newValue);
+      const nextValue = event.newValue;
+      updateCredential(activeTab.id, event.data.id, field, nextValue);
+
+      // Create a new row if this is the last row
+      const credentials = activeTab.credentials;
+      const lastCredential = credentials[credentials.length - 1];
+      if (!lastCredential || lastCredential.id !== event.data.id) return;
+      if (pendingAutoAppendFromRowId.current === event.data.id) return;
+
+      const updatedRow = {
+        ...event.data,
+        [field]: nextValue,
+      } as Record<string, unknown>;
+      if (!hasAnyCredentialData(updatedRow)) return;
+
+      const newId = crypto.randomUUID();
+      pendingAutoAppendFromRowId.current = event.data.id;
+      pendingNewRowId.current = newId;
+      addCredential(activeTab.id, newId);
     },
-    [activeTab, updateCredential]
+    [activeTab, updateCredential, addCredential]
   );
 
   const onRowSelected = useCallback((event: RowSelectedEvent<Credential>) => {
