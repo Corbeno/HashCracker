@@ -21,6 +21,11 @@ interface SearchableDropdownProps {
   getFilteredOptions?: (options: DropdownOption[], searchTerm: string) => DropdownOption[];
   className?: string;
   disabled?: boolean;
+  compact?: boolean;
+  defaultOpen?: boolean;
+  renderInPortal?: boolean;
+  portalClassName?: string;
+  prioritizedOptionIds?: Array<string | number>;
 }
 
 export default function SearchableDropdown({
@@ -34,8 +39,13 @@ export default function SearchableDropdown({
   getFilteredOptions,
   className = '',
   disabled = false,
+  compact = false,
+  defaultOpen = false,
+  renderInPortal = true,
+  portalClassName = '',
+  prioritizedOptionIds = [],
 }: SearchableDropdownProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setIsOpen] = useState(defaultOpen && !disabled);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [dropdownPosition, setDropdownPosition] = useState({
@@ -64,8 +74,32 @@ export default function SearchableDropdown({
   // Use custom filter function if provided, otherwise use default
   const filterFunction = getFilteredOptions || defaultFilterOptions;
 
+  const prioritizeOptions = (list: DropdownOption[]) => {
+    if (prioritizedOptionIds.length === 0) return list;
+
+    const normalizedPriority = new Set(prioritizedOptionIds.map(id => String(id)));
+    const prioritized: DropdownOption[] = [];
+    const remaining: DropdownOption[] = [];
+
+    for (const option of list) {
+      if (normalizedPriority.has(String(option.id))) {
+        prioritized.push(option);
+      } else {
+        remaining.push(option);
+      }
+    }
+
+    prioritized.sort(
+      (a, b) =>
+        prioritizedOptionIds.findIndex(id => String(id) === String(a.id)) -
+        prioritizedOptionIds.findIndex(id => String(id) === String(b.id))
+    );
+
+    return [...prioritized, ...remaining];
+  };
+
   // Filter options based on search term
-  const filteredOptions = filterFunction(options, searchTerm);
+  const filteredOptions = prioritizeOptions(filterFunction(options, searchTerm));
 
   // Find the selected option
   const selectedOption = options.find(option => option.id === value);
@@ -82,6 +116,8 @@ export default function SearchableDropdown({
 
   // Update dropdown position when it's opened
   useEffect(() => {
+    if (!renderInPortal) return;
+
     if (isOpen && containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
       setDropdownPosition({
@@ -104,7 +140,13 @@ export default function SearchableDropdown({
         //I was having a weird issue where the dropdown was getting shifted to the left a bit... This seems to solve it lol
       }
     }
-  }, [isOpen]);
+  }, [isOpen, renderInPortal]);
+
+  useEffect(() => {
+    if (defaultOpen && !disabled) {
+      setIsOpen(true);
+    }
+  }, [defaultOpen, disabled]);
 
   // Scroll selected item into view when navigating
   useEffect(() => {
@@ -221,12 +263,17 @@ export default function SearchableDropdown({
             value={selectedOption ? selectedOption.name : ''}
             onClick={() => !disabled && setIsOpen(true)}
             readOnly
-            className="w-full bg-gray-900/50 rounded-xl border border-gray-700 p-3 pr-8 cursor-pointer truncate"
+            className={`w-full bg-gray-900/50 border border-gray-700 cursor-pointer truncate ${
+              compact ? 'rounded-md p-1.5 pr-7 text-xs' : 'rounded-xl p-3 pr-8'
+            }`}
             disabled={disabled}
+            data-searchable-dropdown-trigger="true"
           />
-          <div className="absolute right-3 top-3 pointer-events-none">
+          <div
+            className={`absolute pointer-events-none ${compact ? 'right-2 top-1.5' : 'right-3 top-3'}`}
+          >
             <svg
-              className="h-5 w-5 text-gray-400"
+              className={`${compact ? 'h-4 w-4' : 'h-5 w-5'} text-gray-400`}
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 20 20"
               fill="currentColor"
@@ -255,6 +302,7 @@ export default function SearchableDropdown({
         </div>
 
         {isOpen &&
+          renderInPortal &&
           typeof document !== 'undefined' &&
           createPortal(
             <div>
@@ -274,7 +322,7 @@ export default function SearchableDropdown({
               />
               <div
                 ref={dropdownRef}
-                className="max-h-80 overflow-y-auto overflow-x-hidden bg-gray-800 border border-gray-700 rounded-xl shadow-lg z-[999]"
+                className={`max-h-80 overflow-y-auto overflow-x-hidden bg-gray-800 border border-gray-700 rounded-xl shadow-lg z-[999] ${portalClassName}`}
                 style={{
                   position: 'absolute',
                   top: `${dropdownPosition.top}px`,
@@ -303,7 +351,10 @@ export default function SearchableDropdown({
                     onClick={e => {
                       e.stopPropagation();
                     }}
-                    className="w-full bg-gray-900/50 rounded-lg border border-gray-700 p-2 text-sm"
+                    className={`w-full bg-gray-900/50 rounded-lg border border-gray-700 ${
+                      compact ? 'p-1.5 text-xs' : 'p-2 text-sm'
+                    }`}
+                    data-searchable-dropdown-search="true"
                     aria-expanded={isOpen}
                     aria-haspopup="listbox"
                     aria-controls="dropdown-listbox"
@@ -315,7 +366,7 @@ export default function SearchableDropdown({
                     filteredOptions.map((option, index) => (
                       <div
                         key={option.id}
-                        className={`p-2 px-3 cursor-pointer hover:bg-gray-700/50 ${
+                        className={`${compact ? 'p-1.5 px-2 text-xs' : 'p-2 px-3'} cursor-pointer hover:bg-gray-700/50 ${
                           value === option.id ? 'bg-blue-900/30' : ''
                         } ${selectedIndex === index ? 'bg-blue-700' : ''}`}
                         onClick={e => {
@@ -338,6 +389,61 @@ export default function SearchableDropdown({
             </div>,
             document.body
           )}
+
+        {isOpen && !renderInPortal && (
+          <div
+            ref={dropdownRef}
+            className="absolute top-full left-0 mt-1 w-full max-h-64 overflow-y-auto overflow-x-hidden bg-gray-800 border border-gray-700 rounded-xl shadow-lg z-40"
+            role="listbox"
+            aria-labelledby="dropdown-button"
+          >
+            <div className="sticky top-0 bg-gray-800 p-2 border-b border-gray-700 z-10">
+              <input
+                ref={searchInputRef}
+                type="text"
+                placeholder={searchPlaceholder}
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                onKeyDown={handleKeyDown}
+                onClick={e => {
+                  e.stopPropagation();
+                }}
+                className={`w-full bg-gray-900/50 rounded-lg border border-gray-700 ${
+                  compact ? 'p-1.5 text-xs' : 'p-2 text-sm'
+                }`}
+                data-searchable-dropdown-search="true"
+                aria-expanded={isOpen}
+                aria-haspopup="listbox"
+                aria-controls="dropdown-listbox"
+              />
+            </div>
+
+            <div id="dropdown-listbox">
+              {filteredOptions.length > 0 ? (
+                filteredOptions.map((option, index) => (
+                  <div
+                    key={option.id}
+                    className={`${compact ? 'p-1.5 px-2 text-xs' : 'p-2 px-3'} cursor-pointer hover:bg-gray-700/50 ${
+                      value === option.id ? 'bg-blue-900/30' : ''
+                    } ${selectedIndex === index ? 'bg-blue-700' : ''}`}
+                    onClick={e => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      selectOption(option);
+                    }}
+                    role="option"
+                    aria-selected={selectedIndex === index}
+                    id={`dropdown-option-${option.id}`}
+                  >
+                    {renderOptionFn(option, value === option.id, selectedIndex === index)}
+                  </div>
+                ))
+              ) : (
+                <div className="p-2 px-3 text-gray-400">No options found</div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

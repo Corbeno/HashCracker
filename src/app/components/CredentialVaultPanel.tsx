@@ -22,6 +22,7 @@ import {
   FilterChangedEvent,
   GridApi,
   GridReadyEvent,
+  ICellEditorParams,
   ModuleRegistry,
   RowSelectedEvent,
   RowSelectionOptions,
@@ -31,8 +32,10 @@ import {
 import { AgGridReact } from 'ag-grid-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
+  forwardRef,
   useCallback,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
@@ -41,6 +44,7 @@ import {
 } from 'react';
 
 import LogImportModal from './LogImportModal';
+import SearchableDropdown, { DropdownOption } from './SearchableDropdown';
 
 import config from '@/config';
 import useCredentialVault from '@/hooks/useCredentialVault';
@@ -52,6 +56,11 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 const theme = themeAlpine.withPart(colorSchemeDark);
 const GRID_STATE_STORAGE_KEY = 'credentialVault.gridState';
 const PENDING_CRACKER_TRANSFER_KEY = 'pendingCrackerVaultTransfer';
+
+interface HashTypeOption extends DropdownOption {
+  id: number;
+  name: string;
+}
 
 interface CredentialVaultGridState {
   columnState: ReturnType<GridApi<Credential>['getColumnState']>;
@@ -82,6 +91,120 @@ function hasAnyCredentialData(credential: Record<string, unknown>): boolean {
     credential.hashType,
     credential.device,
   ].some(value => String(value ?? '').trim() !== '');
+}
+
+const HashTypeDropdownCellEditor = forwardRef<
+  { getValue: () => number | null },
+  ICellEditorParams<Credential, number | null> & {
+    options: HashTypeOption[];
+    onCommit: (credentialId: string, value: number | null) => void;
+  }
+>(function HashTypeDropdownCellEditorInner(
+  {
+    value,
+    data,
+    options,
+    onCommit,
+    stopEditing,
+  }: ICellEditorParams<Credential, number | null> & {
+    options: HashTypeOption[];
+    onCommit: (credentialId: string, value: number | null) => void;
+  },
+  ref
+) {
+  const editorRootRef = useRef<HTMLDivElement | null>(null);
+  const [selectedValue, setSelectedValue] = useState<number | null>(() => {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  });
+  const selectedValueRef = useRef<number | null>(selectedValue);
+
+  useEffect(() => {
+    selectedValueRef.current = selectedValue;
+  }, [selectedValue]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      getValue: () => selectedValueRef.current,
+      afterGuiAttached: () => {
+        requestAnimationFrame(() => {
+          const searchInput = editorRootRef.current?.querySelector<HTMLInputElement>(
+            'input[data-searchable-dropdown-search="true"]'
+          );
+          if (searchInput) {
+            searchInput.focus();
+            return;
+          }
+
+          const triggerInput = editorRootRef.current?.querySelector<HTMLInputElement>(
+            'input[data-searchable-dropdown-trigger="true"]'
+          );
+          triggerInput?.focus();
+        });
+      },
+    }),
+    []
+  );
+
+  return (
+    <div ref={editorRootRef} className="w-full h-full min-w-[220px] bg-gray-900/90 p-1">
+      <SearchableDropdown
+        options={options}
+        value={selectedValue}
+        onChange={option => {
+          const nextValue = option.id as number;
+          selectedValueRef.current = nextValue;
+          setSelectedValue(nextValue);
+          if (data?.id) {
+            onCommit(data.id, nextValue);
+          }
+          stopEditing();
+        }}
+        placeholder="Select"
+        searchPlaceholder="Search hash type..."
+        className="text-xs"
+        compact
+        defaultOpen
+        renderInPortal
+        portalClassName="ag-custom-component-popup"
+        prioritizedOptionIds={[1000]}
+      />
+      {selectedValue !== null && (
+        <button
+          type="button"
+          onClick={event => {
+            event.preventDefault();
+            event.stopPropagation();
+            selectedValueRef.current = null;
+            setSelectedValue(null);
+            if (data?.id) {
+              onCommit(data.id, null);
+            }
+            stopEditing();
+          }}
+          className="mt-1 text-[11px] text-gray-400 hover:text-gray-200"
+        >
+          Clear
+        </button>
+      )}
+    </div>
+  );
+});
+
+function HashTypeTextCellRenderer({
+  value,
+  options,
+}: {
+  value: number | null;
+  options: HashTypeOption[];
+}) {
+  if (value == null) return null;
+
+  const option = options.find(nextOption => nextOption.id === Number(value));
+  if (!option) return <span>{String(value)}</span>;
+
+  return <span>{option.name}</span>;
 }
 
 export default function CredentialVaultPanel() {
@@ -119,21 +242,21 @@ export default function CredentialVaultPanel() {
   );
   const contextMenuOpen = contextMenu !== null;
   const routeTabId = searchParams?.get('tab') ?? null;
-  const hashTypeOptions = useMemo(
+  const hashTypeOptions = useMemo<HashTypeOption[]>(
     () =>
       Object.entries(config.hashcat.hashTypes)
         .map(([id, hashType]) => ({
           id: Number.parseInt(id, 10),
-          label: `${id} - ${hashType.name}`,
+          name: `${id} - ${hashType.name}`,
+          description: hashType.category || 'Other',
         }))
         .sort((a, b) => a.id - b.id),
     []
   );
   const hashTypeNameById = useMemo(
-    () => new Map(hashTypeOptions.map(option => [option.id, option.label])),
+    () => new Map(hashTypeOptions.map(option => [option.id, option.name])),
     [hashTypeOptions]
   );
-  const hashTypeValues = useMemo(() => hashTypeOptions.map(option => option.id), [hashTypeOptions]);
 
   const setRouteTabParam = useCallback(
     (tabId: string) => {
@@ -179,7 +302,7 @@ export default function CredentialVaultPanel() {
       sortable: true,
       resizable: true,
       filter: 'agTextColumnFilter',
-      floatingFilter: true,
+      floatingFilter: false,
       minWidth: 120,
     }),
     []
@@ -383,6 +506,14 @@ export default function CredentialVaultPanel() {
     [tabs.length, deleteTab]
   );
 
+  const handleCommitHashType = useCallback(
+    (credentialId: string, value: number | null) => {
+      if (!activeTab) return;
+      updateCredential(activeTab.id, credentialId, 'hashType', value);
+    },
+    [activeTab, updateCredential]
+  );
+
   const columnDefs = useMemo<ColDef<Credential>[]>(
     () => [
       {
@@ -400,19 +531,24 @@ export default function CredentialVaultPanel() {
         headerName: 'Hash Type',
         field: 'hashType',
         flex: 1,
-        cellEditor: 'agSelectCellEditor',
-        cellEditorParams: {
-          values: hashTypeValues,
+        editable: true,
+        minWidth: 230,
+        cellRenderer: HashTypeTextCellRenderer,
+        cellEditor: HashTypeDropdownCellEditor,
+        cellEditorPopup: false,
+        suppressKeyboardEvent: params => params.editing,
+        cellEditorParams: () => ({
+          options: hashTypeOptions,
+          onCommit: handleCommitHashType,
+        }),
+        cellRendererParams: {
+          options: hashTypeOptions,
         },
         valueFormatter: params => {
           if (params.value == null) return '';
           const hashTypeId = Number(params.value);
           if (!Number.isFinite(hashTypeId)) return '';
           return hashTypeNameById.get(hashTypeId) ?? String(hashTypeId);
-        },
-        valueParser: params => {
-          const next = Number.parseInt(String(params.newValue ?? ''), 10);
-          return Number.isFinite(next) ? next : null;
         },
       },
       {
@@ -421,7 +557,7 @@ export default function CredentialVaultPanel() {
         flex: 1,
       },
     ],
-    [hashTypeNameById, hashTypeValues]
+    [handleCommitHashType, hashTypeNameById, hashTypeOptions]
   );
 
   const onCellValueChanged = useCallback(
@@ -429,6 +565,9 @@ export default function CredentialVaultPanel() {
       if (!event.data || !event.colDef.field) return;
       if (!activeTab) return;
       const field = event.colDef.field as keyof Credential;
+      if (field === 'hashType') {
+        return;
+      }
       const nextValue = event.newValue;
       updateCredential(activeTab.id, event.data.id, field, nextValue);
 
@@ -575,14 +714,6 @@ export default function CredentialVaultPanel() {
             onChange={e => setQuickFilterText(e.target.value)}
             className="bg-gray-700 border border-gray-600 text-white placeholder-gray-400 px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-blue-500 w-48"
           />
-          {selectedIds.size > 0 && (
-            <button
-              onClick={handleDeleteSelected}
-              className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg text-sm transition-colors"
-            >
-              Delete Selected ({selectedIds.size})
-            </button>
-          )}
           <button
             onClick={() => setIsLogImportModalOpen(true)}
             className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm transition-colors"
@@ -590,20 +721,6 @@ export default function CredentialVaultPanel() {
           >
             Log Import
           </button>
-          <div className="relative group">
-            <button
-              onClick={handleSendSelectedToCracker}
-              className="bg-teal-600 hover:bg-teal-500 text-white px-4 py-2 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={!canSendSelectedToCracker}
-            >
-              Crack Selected
-            </button>
-            {!canSendSelectedToCracker && sendDisabledReason && (
-              <div className="pointer-events-none absolute right-0 top-full mt-2 z-30 hidden group-hover:block w-72 rounded-md border border-gray-600 bg-gray-900 text-xs text-gray-200 p-2 shadow-lg">
-                {sendDisabledReason}
-              </div>
-            )}
-          </div>
           <button
             onClick={handleAddRow}
             className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-lg text-sm transition-colors"
@@ -614,7 +731,7 @@ export default function CredentialVaultPanel() {
         </div>
       </div>
 
-      <div className="flex items-center gap-2 overflow-x-auto pb-1">
+      <div className="flex flex-wrap items-center gap-2 pb-1">
         {tabs.map(tab => {
           const isActive = tab.id === activeTabId;
           const isRenaming = tab.id === renamingTabId;
@@ -716,6 +833,33 @@ export default function CredentialVaultPanel() {
           quickFilterText={quickFilterText}
         />
       </div>
+      {selectedIds.size > 0 && (
+        <div className="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
+          <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-gray-600 bg-gray-900/95 px-3 py-2 shadow-2xl backdrop-blur">
+            <span className="text-sm text-gray-200 px-2">{selectedIds.size} selected</span>
+            <button
+              onClick={handleDeleteSelected}
+              className="bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 rounded-lg text-sm transition-colors"
+            >
+              Delete Selected
+            </button>
+            <div className="relative group">
+              <button
+                onClick={handleSendSelectedToCracker}
+                className="bg-teal-600 hover:bg-teal-500 text-white px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={!canSendSelectedToCracker}
+              >
+                Crack Selected
+              </button>
+              {!canSendSelectedToCracker && sendDisabledReason && (
+                <div className="pointer-events-none absolute right-0 bottom-full mb-2 z-30 hidden group-hover:block w-72 rounded-md border border-gray-600 bg-gray-900 text-xs text-gray-200 p-2 shadow-lg">
+                  {sendDisabledReason}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       <LogImportModal
         isOpen={isLogImportModalOpen}
         onClose={() => setIsLogImportModalOpen(false)}
