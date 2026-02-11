@@ -22,7 +22,6 @@ import {
   FilterChangedEvent,
   GridApi,
   GridReadyEvent,
-  ICellEditorParams,
   ModuleRegistry,
   RowSelectedEvent,
   RowSelectionOptions,
@@ -32,10 +31,8 @@ import {
 import { AgGridReact } from 'ag-grid-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
-  forwardRef,
   useCallback,
   useEffect,
-  useImperativeHandle,
   useMemo,
   useRef,
   useState,
@@ -43,8 +40,15 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from 'react';
 
+import { PENDING_CRACKER_TRANSFER_KEY } from './constants';
+import { persistGridState as persistGridStateSnapshot, loadGridState } from './grid/gridState';
+import {
+  HashTypeDropdownCellEditor,
+  HashTypeOption,
+  HashTypeTextCellRenderer,
+} from './grid/HashTypeCells';
+import { buildCredentialSelectionState } from './grid/selection';
 import LogImportModal from './LogImportModal';
-import SearchableDropdown, { DropdownOption } from './SearchableDropdown';
 
 import config from '@/config';
 import useCredentialVault from '@/hooks/useCredentialVault';
@@ -54,34 +58,6 @@ import { LogImportType } from '@/types/logImport';
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 const theme = themeAlpine.withPart(colorSchemeDark);
-const GRID_STATE_STORAGE_KEY = 'credentialVault.gridState';
-const PENDING_CRACKER_TRANSFER_KEY = 'pendingCrackerVaultTransfer';
-
-interface HashTypeOption extends DropdownOption {
-  id: number;
-  name: string;
-}
-
-interface CredentialVaultGridState {
-  columnState: ReturnType<GridApi<Credential>['getColumnState']>;
-  filterModel: ReturnType<GridApi<Credential>['getFilterModel']>;
-}
-
-function loadGridState(): CredentialVaultGridState | null {
-  try {
-    const raw = localStorage.getItem(GRID_STATE_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<CredentialVaultGridState>;
-    if (!parsed || typeof parsed !== 'object') return null;
-    if (!Array.isArray(parsed.columnState) || typeof parsed.filterModel !== 'object') return null;
-    return {
-      columnState: parsed.columnState,
-      filterModel: parsed.filterModel,
-    };
-  } catch {
-    return null;
-  }
-}
 
 function hasAnyCredentialData(credential: Record<string, unknown>): boolean {
   return [
@@ -91,120 +67,6 @@ function hasAnyCredentialData(credential: Record<string, unknown>): boolean {
     credential.hashType,
     credential.device,
   ].some(value => String(value ?? '').trim() !== '');
-}
-
-const HashTypeDropdownCellEditor = forwardRef<
-  { getValue: () => number | null },
-  ICellEditorParams<Credential, number | null> & {
-    options: HashTypeOption[];
-    onCommit: (credentialId: string, value: number | null) => void;
-  }
->(function HashTypeDropdownCellEditorInner(
-  {
-    value,
-    data,
-    options,
-    onCommit,
-    stopEditing,
-  }: ICellEditorParams<Credential, number | null> & {
-    options: HashTypeOption[];
-    onCommit: (credentialId: string, value: number | null) => void;
-  },
-  ref
-) {
-  const editorRootRef = useRef<HTMLDivElement | null>(null);
-  const [selectedValue, setSelectedValue] = useState<number | null>(() => {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  });
-  const selectedValueRef = useRef<number | null>(selectedValue);
-
-  useEffect(() => {
-    selectedValueRef.current = selectedValue;
-  }, [selectedValue]);
-
-  useImperativeHandle(
-    ref,
-    () => ({
-      getValue: () => selectedValueRef.current,
-      afterGuiAttached: () => {
-        requestAnimationFrame(() => {
-          const searchInput = editorRootRef.current?.querySelector<HTMLInputElement>(
-            'input[data-searchable-dropdown-search="true"]'
-          );
-          if (searchInput) {
-            searchInput.focus();
-            return;
-          }
-
-          const triggerInput = editorRootRef.current?.querySelector<HTMLInputElement>(
-            'input[data-searchable-dropdown-trigger="true"]'
-          );
-          triggerInput?.focus();
-        });
-      },
-    }),
-    []
-  );
-
-  return (
-    <div ref={editorRootRef} className="w-full h-full min-w-[220px] bg-gray-900/90 p-1">
-      <SearchableDropdown
-        options={options}
-        value={selectedValue}
-        onChange={option => {
-          const nextValue = option.id as number;
-          selectedValueRef.current = nextValue;
-          setSelectedValue(nextValue);
-          if (data?.id) {
-            onCommit(data.id, nextValue);
-          }
-          stopEditing();
-        }}
-        placeholder="Select"
-        searchPlaceholder="Search hash type..."
-        className="text-xs"
-        compact
-        defaultOpen
-        renderInPortal
-        portalClassName="ag-custom-component-popup"
-        prioritizedOptionIds={[1000]}
-      />
-      {selectedValue !== null && (
-        <button
-          type="button"
-          onClick={event => {
-            event.preventDefault();
-            event.stopPropagation();
-            selectedValueRef.current = null;
-            setSelectedValue(null);
-            if (data?.id) {
-              onCommit(data.id, null);
-            }
-            stopEditing();
-          }}
-          className="mt-1 text-[11px] text-gray-400 hover:text-gray-200"
-        >
-          Clear
-        </button>
-      )}
-    </div>
-  );
-});
-
-function HashTypeTextCellRenderer({
-  value,
-  options,
-}: {
-  value: number | null;
-  options: HashTypeOption[];
-}) {
-  if (value == null) return null;
-
-  const option = options.find(nextOption => nextOption.id === Number(value));
-  if (!option) return <span>{String(value)}</span>;
-
-  return <span>{option.name}</span>;
 }
 
 export default function CredentialVaultPanel() {
@@ -332,12 +194,7 @@ export default function CredentialVaultPanel() {
   }, []);
 
   const persistGridState = useCallback(() => {
-    if (!gridApiRef.current) return;
-    const state: CredentialVaultGridState = {
-      columnState: gridApiRef.current.getColumnState(),
-      filterModel: gridApiRef.current.getFilterModel(),
-    };
-    localStorage.setItem(GRID_STATE_STORAGE_KEY, JSON.stringify(state));
+    persistGridStateSnapshot(gridApiRef.current);
   }, []);
 
   // After credentials updates, if there's a pending new row, scroll to it and start editing
@@ -653,33 +510,14 @@ export default function CredentialVaultPanel() {
     setSelectedIds(new Set());
   }, [activeTab, selectedIds, deleteCredentials]);
 
-  const selectedCredentials = useMemo(() => {
-    if (!activeTab) return [];
-    return activeTab.credentials.filter(credential => selectedIds.has(credential.id));
-  }, [activeTab, selectedIds]);
+  const { selectedCrackableRows, selectedHashTypes, canSendSelectedToCracker, sendDisabledReason } =
+    useMemo(() => {
+      if (!activeTab) {
+        return buildCredentialSelectionState([], selectedIds);
+      }
 
-  const selectedCrackableRows = useMemo(
-    () =>
-      selectedCredentials.filter(
-        (credential): credential is Credential & { hashType: number } =>
-          credential.hash.trim() !== '' &&
-          credential.hashType !== null &&
-          credential.password.trim() === ''
-      ),
-    [selectedCredentials]
-  );
-
-  const selectedHashTypes = useMemo(
-    () => Array.from(new Set(selectedCrackableRows.map(credential => credential.hashType))),
-    [selectedCrackableRows]
-  );
-
-  const hasMixedSelectedHashTypes = selectedHashTypes.length > 1;
-  const canSendSelectedToCracker =
-    selectedIds.size > 0 && selectedCrackableRows.length > 0 && !hasMixedSelectedHashTypes;
-  const sendDisabledReason = hasMixedSelectedHashTypes
-    ? 'Selected rows contain multiple hash types. Choose rows with one hash type.'
-    : '';
+      return buildCredentialSelectionState(activeTab.credentials, selectedIds);
+    }, [activeTab, selectedIds]);
 
   const handleSendSelectedToCracker = useCallback(() => {
     if (!canSendSelectedToCracker || selectedHashTypes.length < 1) return;

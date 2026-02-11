@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import ShowMoreButton from '@/app/components/ShowMoreButton';
+import ShowMoreButton from '@/components/ui/ShowMoreButton';
 import { CrackedHash } from '@/utils/hashUtils';
 
 interface CrackedHashesPanelProps {

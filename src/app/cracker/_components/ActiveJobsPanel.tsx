@@ -3,50 +3,13 @@
 import Image from 'next/image';
 import { useState } from 'react';
 
-import DebugPanel from '@/app/components/DebugPanel';
-import JobProgressBar from '@/app/components/JobProgressBar';
-import ShowMoreButton from '@/app/components/ShowMoreButton';
+import JobHashList from './active-jobs/JobHashList';
+import { getStatusColor, getStatusText } from './active-jobs/status';
+import DebugPanel from './DebugPanel';
+import JobProgressBar from './JobProgressBar';
+
 import { Job } from '@/types/job';
-import { compareHashes } from '@/utils/clientHashUtils';
 import { CrackedHash } from '@/utils/hashUtils';
-
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'completed':
-      return 'text-green-400';
-    case 'failed':
-      return 'text-red-400';
-    case 'running':
-      return 'text-blue-400';
-    case 'queued':
-      return 'text-yellow-400';
-    case 'cancelled':
-      return 'text-gray-400';
-    case 'exhausted':
-      return 'text-orange-400';
-    default:
-      return 'text-gray-400';
-  }
-};
-
-const getStatusText = (status: string) => {
-  switch (status) {
-    case 'completed':
-      return 'Completed';
-    case 'failed':
-      return 'Failed';
-    case 'running':
-      return 'Running';
-    case 'pending':
-      return 'Queued';
-    case 'cancelled':
-      return 'Cancelled';
-    case 'exhausted':
-      return 'Exhausted';
-    default:
-      return status;
-  }
-};
 
 interface ActiveJobsPanelProps {
   jobs: Job[];
@@ -66,9 +29,6 @@ export default function ActiveJobsPanel({
   copyNonCrackedHashesToInput,
 }: ActiveJobsPanelProps) {
   const [error, setError] = useState<string | null>(null);
-  const [expandedHashes, setExpandedHashes] = useState<Set<string>>(new Set());
-
-  const MAX_VISIBLE_HASHES = 15;
 
   const handleCancelJob = async (jobId: string) => {
     try {
@@ -87,18 +47,6 @@ export default function ActiveJobsPanel({
       console.error('Error cancelling job:', error);
       setError('Failed to cancel job. See console for details.');
     }
-  };
-
-  const toggleHashesExpansion = (jobId: string) => {
-    setExpandedHashes(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(jobId)) {
-        newSet.delete(jobId);
-      } else {
-        newSet.add(jobId);
-      }
-      return newSet;
-    });
   };
 
   return (
@@ -163,44 +111,7 @@ export default function ActiveJobsPanel({
               </div>
             </div>
 
-            <div className="font-mono text-sm space-y-1 mt-3">
-              {job.hashes
-                .slice(0, expandedHashes.has(job.id) ? undefined : MAX_VISIBLE_HASHES)
-                .map((hash, i) => {
-                  // Default to true for case sensitivity if property doesn't exist
-                  const isCaseSensitive = true;
-
-                  // Check if this hash has been cracked, considering case sensitivity
-                  const crackedHash = crackedHashes.find(ch =>
-                    compareHashes(ch.hash, hash, isCaseSensitive)
-                  );
-
-                  return (
-                    <div
-                      key={i}
-                      className={`break-all py-1 ${crackedHash ? 'text-green-400' : 'text-gray-400'}`}
-                    >
-                      {hash}
-                      {crackedHash && (
-                        <span>
-                          <span className="text-gray-500 mx-1">-&gt;</span>
-                          <span className="text-white">{crackedHash.password}</span>
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-
-              {job.hashes.length > MAX_VISIBLE_HASHES && (
-                <ShowMoreButton
-                  expanded={expandedHashes.has(job.id)}
-                  toggleExpanded={() => toggleHashesExpansion(job.id)}
-                  totalCount={job.hashes.length}
-                  visibleCount={expandedHashes.has(job.id) ? job.hashes.length : MAX_VISIBLE_HASHES}
-                  itemName="hashes"
-                />
-              )}
-            </div>
+            <JobHashList jobId={job.id} hashes={job.hashes} crackedHashes={crackedHashes} />
 
             {expandedJob?.id === job.id && job.debugInfo && <DebugPanel job={job} />}
 

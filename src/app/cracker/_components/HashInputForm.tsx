@@ -3,7 +3,9 @@
 import Image from 'next/image';
 import React, { useMemo, useState } from 'react';
 
-import SearchableDropdown, { DropdownOption } from '@/app/components/SearchableDropdown';
+import useCrackSubmit from '../_hooks/useCrackSubmit';
+
+import SearchableDropdown, { DropdownOption } from '@/components/ui/searchable-dropdown';
 import config from '@/config';
 
 interface HashInputFormProps {
@@ -25,8 +27,8 @@ export default function HashInputForm({
   openBenchmarkModal,
   onCrackingStart,
 }: HashInputFormProps) {
-  const [error, setError] = useState<string | null>(null);
   const [attackMode, setAttackMode] = useState<string>('rockyou');
+  const { error, submit } = useCrackSubmit({ onCrackingStart });
 
   const handleAttackModeChange = (option: DropdownOption) => {
     setAttackMode(option.id as string);
@@ -34,46 +36,7 @@ export default function HashInputForm({
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-
-    try {
-      // Validate input
-      if (!hashInput.trim()) {
-        setError('Please enter at least one hash');
-        return;
-      }
-
-      // Split input by newlines and filter out empty lines
-      const hashes = hashInput
-        .split('\n')
-        .map(line => line.trim())
-        .filter(line => line.length > 0);
-
-      // Prepare request body
-      const requestBody = {
-        hashes,
-        type: hashType,
-        mode: attackMode,
-      };
-
-      // Send request to API
-      const response = await fetch('/api/crack', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      const data = await response.json();
-      if (data.error) {
-        setError(`Failed to start cracking: ${data.error}`);
-      } else {
-        onCrackingStart();
-      }
-    } catch (error) {
-      console.error('Error submitting crack request:', error);
-      setError('Failed to submit request. See console for details.');
-    }
+    await submit(hashInput, hashType, attackMode);
   };
 
   // Get available hash types from config

@@ -1,8 +1,8 @@
 'use client';
 
-import AppHeader from '@/app/components/AppHeader';
-import CredentialVaultPanel from '@/app/components/CredentialVaultPanel';
-import TabBar from '@/app/components/TabBar';
+import CredentialVaultPanel from '@/app/vault/_components/credential-vault/CredentialVaultPanel';
+import AppHeader from '@/components/app-shell/AppHeader';
+import TabBar from '@/components/app-shell/TabBar';
 import useConnection from '@/hooks/useConnection';
 
 const APP_TABS = [

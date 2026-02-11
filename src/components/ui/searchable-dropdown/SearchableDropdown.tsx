@@ -3,12 +3,7 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-export interface DropdownOption {
-  id: string | number;
-  name: string;
-  description?: string;
-  [key: string]: any; // Allow additional properties
-}
+import { DropdownOption } from './types';
 
 interface SearchableDropdownProps {
   options: DropdownOption[];

@@ -3,8 +3,8 @@
 import Image from 'next/image';
 import { useState } from 'react';
 
-import Logo from '@/app/components/Logo';
-import SystemInfoPanel from '@/app/components/SystemInfoPanel';
+import Logo from '@/components/app-shell/Logo';
+import SystemInfoPanel from '@/components/app-shell/SystemInfoPanel';
 
 // SVG Icon Components
 function MenuOpenIcon() {

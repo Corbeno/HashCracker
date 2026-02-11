@@ -3,8 +3,9 @@
 import Image from 'next/image';
 import { useEffect, useState } from 'react';
 
-import SearchableDropdown, { DropdownOption } from './SearchableDropdown';
+import useBenchmark from '../_hooks/useBenchmark';
 
+import SearchableDropdown, { DropdownOption } from '@/components/ui/searchable-dropdown';
 import config from '@/config';
 
 interface BenchmarkModalProps {
@@ -12,20 +13,10 @@ interface BenchmarkModalProps {
   onClose: () => void;
 }
 
-interface BenchmarkResult {
-  hashType: number;
-  hashName: string;
-  speed: string;
-  speedPerHash: number;
-  unit: string;
-}
-
 export default function BenchmarkModal({ isOpen, onClose }: BenchmarkModalProps) {
-  const [results, setResults] = useState<BenchmarkResult[]>([]);
   const [selectedHashType, setSelectedHashType] = useState<number | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [hashTypeOptions, setHashTypeOptions] = useState<DropdownOption[]>([]);
+  const { results, isLoading, error, runBenchmark } = useBenchmark();
 
   // Populate hash type options
   useEffect(() => {
@@ -41,31 +32,6 @@ export default function BenchmarkModal({ isOpen, onClose }: BenchmarkModalProps)
 
   const handleHashTypeChange = (option: DropdownOption) => {
     setSelectedHashType(option.id as number);
-  };
-
-  const runBenchmark = async () => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      const url =
-        selectedHashType !== null
-          ? `/api/benchmark?hashType=${selectedHashType}`
-          : '/api/benchmark';
-
-      const response = await fetch(url);
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to run benchmark');
-      }
-
-      setResults(data.results);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : 'An unknown error occurred');
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   // Format a large number with commas
@@ -111,7 +77,7 @@ export default function BenchmarkModal({ isOpen, onClose }: BenchmarkModalProps)
               />
             </div>
             <button
-              onClick={runBenchmark}
+              onClick={() => runBenchmark(selectedHashType)}
               disabled={isLoading}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 h-10"
             >
