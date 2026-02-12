@@ -40,7 +40,7 @@ import {
   type MouseEvent as ReactMouseEvent,
 } from 'react';
 
-import { PENDING_CRACKER_TRANSFER_KEY } from './constants';
+import CrackSelectedModal from './CrackSelectedModal';
 import { persistGridState as persistGridStateSnapshot, loadGridState } from './grid/gridState';
 import {
   HashTypeDropdownCellEditor,
@@ -50,6 +50,7 @@ import {
 import { buildCredentialSelectionState } from './grid/selection';
 import LogImportModal from './LogImportModal';
 
+import { DropdownOption } from '@/components/ui/searchable-dropdown';
 import config from '@/config';
 import useCredentialVault from '@/hooks/useCredentialVault';
 import { Credential } from '@/types/credential';
@@ -93,6 +94,11 @@ export default function CredentialVaultPanel() {
   const [renameTabName, setRenameTabName] = useState('');
   const [contextMenu, setContextMenu] = useState<{ tabId: string } | null>(null);
   const [isLogImportModalOpen, setIsLogImportModalOpen] = useState(false);
+  const [isCrackSelectedModalOpen, setIsCrackSelectedModalOpen] = useState(false);
+  const [selectedAttackMode, setSelectedAttackMode] = useState<string>('rockyou');
+  const [isQueueingCrackJobs, setIsQueueingCrackJobs] = useState(false);
+  const [queueCrackJobsError, setQueueCrackJobsError] = useState<string | null>(null);
+  const [queueCrackJobsStatus, setQueueCrackJobsStatus] = useState<string | null>(null);
   const gridApiRef = useRef<GridApi<Credential> | null>(null);
   const pendingNewRowId = useRef<string | null>(null);
   const pendingAutoAppendFromRowId = useRef<string | null>(null);
@@ -118,6 +124,15 @@ export default function CredentialVaultPanel() {
   const hashTypeNameById = useMemo(
     () => new Map(hashTypeOptions.map(option => [option.id, option.name])),
     [hashTypeOptions]
+  );
+  const attackModeOptions = useMemo<DropdownOption[]>(
+    () =>
+      Object.entries(config.hashcat.attackModes).map(([id, mode]) => ({
+        id,
+        name: mode.name,
+        description: mode.description,
+      })),
+    []
   );
 
   const setRouteTabParam = useCallback(
@@ -510,27 +525,65 @@ export default function CredentialVaultPanel() {
     setSelectedIds(new Set());
   }, [activeTab, selectedIds, deleteCredentials]);
 
-  const { selectedCrackableRows, selectedHashTypes, canSendSelectedToCracker, sendDisabledReason } =
-    useMemo(() => {
-      if (!activeTab) {
-        return buildCredentialSelectionState([], selectedIds);
+  const { crackJobDrafts, canSendSelectedToCracker, sendDisabledReason } = useMemo(() => {
+    if (!activeTab) {
+      return buildCredentialSelectionState([], selectedIds);
+    }
+
+    return buildCredentialSelectionState(activeTab.credentials, selectedIds);
+  }, [activeTab, selectedIds]);
+
+  const handleSendSelectedToCracker = useCallback(async () => {
+    if (!canSendSelectedToCracker || crackJobDrafts.length === 0) return;
+
+    setIsQueueingCrackJobs(true);
+    setQueueCrackJobsError(null);
+
+    try {
+      let queuedCount = 0;
+
+      for (const job of crackJobDrafts) {
+        const response = await fetch('/api/crack', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            hashes: job.hashes,
+            type: job.hashType,
+            mode: selectedAttackMode,
+          }),
+        });
+
+        const data = await response.json();
+        if (!response.ok || data.error) {
+          const errorMessage = typeof data.error === 'string' ? data.error : 'Unknown error';
+          setQueueCrackJobsError(
+            `Queued ${queuedCount}/${crackJobDrafts.length} jobs. Error: ${errorMessage}`
+          );
+          return;
+        }
+
+        queuedCount += 1;
       }
 
-      return buildCredentialSelectionState(activeTab.credentials, selectedIds);
-    }, [activeTab, selectedIds]);
+      setQueueCrackJobsStatus(
+        `Queued ${queuedCount} job${queuedCount === 1 ? '' : 's'}. Open Hash Cracker to monitor progress.`
+      );
+      setSelectedIds(new Set());
+      setIsCrackSelectedModalOpen(false);
+    } catch {
+      setQueueCrackJobsError('Failed to queue crack jobs.');
+    } finally {
+      setIsQueueingCrackJobs(false);
+    }
+  }, [canSendSelectedToCracker, crackJobDrafts, selectedAttackMode]);
 
-  const handleSendSelectedToCracker = useCallback(() => {
-    if (!canSendSelectedToCracker || selectedHashTypes.length < 1) return;
-
-    const hashType = selectedHashTypes[0];
-    const hashes = Array.from(
-      new Set(selectedCrackableRows.map(credential => credential.hash.trim()).filter(Boolean))
-    );
-    if (hashes.length === 0) return;
-
-    localStorage.setItem(PENDING_CRACKER_TRANSFER_KEY, JSON.stringify({ hashes, hashType }));
-    router.push('/cracker');
-  }, [canSendSelectedToCracker, router, selectedCrackableRows, selectedHashTypes]);
+  const handleOpenCrackSelectedModal = useCallback(() => {
+    if (!canSendSelectedToCracker) return;
+    setQueueCrackJobsError(null);
+    setIsCrackSelectedModalOpen(true);
+  }, [canSendSelectedToCracker]);
 
   const handleLogImport = useCallback(
     async (logType: LogImportType, rawLog: string) => {
@@ -671,6 +724,13 @@ export default function CredentialVaultPanel() {
           quickFilterText={quickFilterText}
         />
       </div>
+      {queueCrackJobsStatus && (
+        <div className="pointer-events-none fixed bottom-20 left-1/2 z-50 -translate-x-1/2">
+          <div className="pointer-events-auto rounded-xl border border-teal-700/60 bg-teal-900/20 px-3 py-2 text-sm text-teal-100 shadow-2xl backdrop-blur">
+            {queueCrackJobsStatus}
+          </div>
+        </div>
+      )}
       {selectedIds.size > 0 && (
         <div className="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
           <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-gray-600 bg-gray-900/95 px-3 py-2 shadow-2xl backdrop-blur">
@@ -683,7 +743,7 @@ export default function CredentialVaultPanel() {
             </button>
             <div className="relative group">
               <button
-                onClick={handleSendSelectedToCracker}
+                onClick={handleOpenCrackSelectedModal}
                 className="bg-teal-600 hover:bg-teal-500 text-white px-3 py-1.5 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={!canSendSelectedToCracker}
               >
@@ -702,6 +762,22 @@ export default function CredentialVaultPanel() {
         isOpen={isLogImportModalOpen}
         onClose={() => setIsLogImportModalOpen(false)}
         onImport={handleLogImport}
+      />
+      <CrackSelectedModal
+        isOpen={isCrackSelectedModalOpen}
+        attackMode={selectedAttackMode}
+        attackModeOptions={attackModeOptions}
+        crackJobDrafts={crackJobDrafts}
+        hashTypeNameById={hashTypeNameById}
+        isQueueing={isQueueingCrackJobs}
+        queueError={queueCrackJobsError}
+        queueStatus={queueCrackJobsStatus}
+        onAttackModeChange={setSelectedAttackMode}
+        onClose={() => {
+          if (isQueueingCrackJobs) return;
+          setIsCrackSelectedModalOpen(false);
+        }}
+        onQueueJobs={handleSendSelectedToCracker}
       />
     </div>
   );

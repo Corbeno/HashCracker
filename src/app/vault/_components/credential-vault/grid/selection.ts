@@ -4,9 +4,15 @@ export interface CredentialSelectionState {
   selectedCredentials: Credential[];
   selectedCrackableRows: Array<Credential & { hashType: number }>;
   selectedHashTypes: number[];
-  hasMixedSelectedHashTypes: boolean;
+  crackJobDrafts: CrackJobDraft[];
   canSendSelectedToCracker: boolean;
   sendDisabledReason: string;
+}
+
+export interface CrackJobDraft {
+  hashType: number;
+  hashes: string[];
+  rowCount: number;
 }
 
 export function buildCredentialSelectionState(
@@ -24,18 +30,37 @@ export function buildCredentialSelectionState(
   const selectedHashTypes = Array.from(
     new Set(selectedCrackableRows.map(credential => credential.hashType))
   );
-  const hasMixedSelectedHashTypes = selectedHashTypes.length > 1;
-  const canSendSelectedToCracker =
-    selectedIds.size > 0 && selectedCrackableRows.length > 0 && !hasMixedSelectedHashTypes;
+  const groupedRows = new Map<number, { hashes: Set<string>; rowCount: number }>();
+
+  for (const credential of selectedCrackableRows) {
+    const existingGroup = groupedRows.get(credential.hashType) ?? {
+      hashes: new Set<string>(),
+      rowCount: 0,
+    };
+    existingGroup.hashes.add(credential.hash.trim());
+    existingGroup.rowCount += 1;
+    groupedRows.set(credential.hashType, existingGroup);
+  }
+
+  const crackJobDrafts = Array.from(groupedRows.entries())
+    .map(([hashType, group]) => ({
+      hashType,
+      hashes: Array.from(group.hashes),
+      rowCount: group.rowCount,
+    }))
+    .sort((a, b) => a.hashType - b.hashType);
+
+  const canSendSelectedToCracker = selectedIds.size > 0 && crackJobDrafts.length > 0;
 
   return {
     selectedCredentials,
     selectedCrackableRows,
     selectedHashTypes,
-    hasMixedSelectedHashTypes,
+    crackJobDrafts,
     canSendSelectedToCracker,
-    sendDisabledReason: hasMixedSelectedHashTypes
-      ? 'Selected rows contain multiple hash types. Choose rows with one hash type.'
-      : '',
+    sendDisabledReason:
+      selectedIds.size > 0 && crackJobDrafts.length === 0
+        ? 'Select rows with a hash, a hash type, and no existing plaintext password.'
+        : '',
   };
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 
 import ActiveJobsPanel from '@/app/cracker/_components/ActiveJobsPanel';
 import BenchmarkModal from '@/app/cracker/_components/BenchmarkModal';
@@ -8,10 +8,6 @@ import CrackedHashesPanel from '@/app/cracker/_components/CrackedHashesPanel';
 import HashInputForm from '@/app/cracker/_components/HashInputForm';
 import PotfileModal from '@/app/cracker/_components/PotfileModal';
 import YoinkHashesModal from '@/app/cracker/_components/yoink/YoinkHashesModal';
-import {
-  PENDING_CRACKER_TRANSFER_KEY,
-  parsePendingCrackerTransfer,
-} from '@/app/cracker/_lib/pendingTransfer';
 import AppHeader from '@/components/app-shell/AppHeader';
 import TabBar from '@/components/app-shell/TabBar';
 import useConnection from '@/hooks/useConnection';
@@ -38,23 +34,6 @@ export default function CrackerPage() {
     crackedHashes,
     setHashInput,
   });
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(PENDING_CRACKER_TRANSFER_KEY);
-      if (raw == null) return;
-
-      const payload = parsePendingCrackerTransfer(raw);
-      if (payload == null) return;
-
-      setHashType(payload.hashType);
-      setHashInput(payload.hashes.join('\n'));
-    } catch {
-      // Ignore malformed transfer payloads.
-    } finally {
-      localStorage.removeItem(PENDING_CRACKER_TRANSFER_KEY);
-    }
-  }, []);
 
   return (
     <main className="px-4 py-8 min-h-screen flex flex-col">
