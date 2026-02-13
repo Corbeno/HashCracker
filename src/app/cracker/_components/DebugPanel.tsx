@@ -26,7 +26,7 @@ export default function DebugPanel({ job }: DebugPanelProps) {
       )}
 
       <div>
-        <h3 className="text-sm font-medium text-gray-400 mb-2">New hashes cracked this run:</h3>
+        <h3 className="text-sm font-medium text-gray-400 mb-2">Recovered hashes for this job:</h3>
         <div className="space-y-2">
           {job.results?.map((result: CrackedHash, i: number) => (
             <div key={i} className="font-mono text-sm">

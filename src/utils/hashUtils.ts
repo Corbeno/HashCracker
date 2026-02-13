@@ -7,14 +7,12 @@ import * as os from 'os';
 import path from 'path';
 import readline from 'readline';
 
-import { applyCrackedPasswordsToCredentialVault } from './credentialVaultStore';
 import { DebugInfo, JobStatus } from './jobQueue';
 import { logger } from './logger';
 
 import config from '@/config';
 import { HashcatMode } from '@/config/config';
 import { HashType } from '@/config/hashTypes';
-import { sendEventToAll } from './miscUtils';
 
 export interface CrackedHash {
   hash: string;
@@ -55,109 +53,81 @@ export interface HashcatStatusJson {
   estimated_stop: number;
 }
 
-export function readCrackedHashes(): CrackedHash[] {
-  const crackedFile = path.join(config.hashcat.dirs.hashes, 'cracked.txt');
-
-  if (!fsSync.existsSync(crackedFile)) {
-    return [];
+function parseCrackedHashLine(line: string): CrackedHash | null {
+  const trimmed = line.trim();
+  if (!trimmed) {
+    return null;
   }
 
-  try {
-    const content = fsSync.readFileSync(crackedFile, 'utf8');
-    const results = content
-      .split('\n')
-      .map(line => line.trim())
-      .filter(Boolean)
-      .map(line => {
-        const [hash, password] = line.split(':');
-        return { hash, password };
-      });
-
-    return results;
-  } catch (error) {
-    logger.error('Error reading cracked file:', error);
-    return [];
+  const separatorIndex = trimmed.indexOf(':');
+  if (separatorIndex <= 0) {
+    return null;
   }
+
+  const hash = trimmed.slice(0, separatorIndex);
+  const password = trimmed.slice(separatorIndex + 1);
+  return { hash, password };
 }
 
-function findInCrackedFileOrPotfile(hashes: string[]): CrackedHash[] {
+function readCrackedHashesFromSourceFiles(): CrackedHash[] {
   const crackedFile = path.join(config.hashcat.dirs.hashes, 'cracked.txt');
   const potfilePath =
     config.hashcat.potfilePath || path.join(config.hashcat.dirs.hashes, 'hashcat.potfile');
-  const hashesSet = new Set(hashes);
-
-  if (!fsSync.existsSync(crackedFile) && !fsSync.existsSync(potfilePath)) {
-    return [];
-  }
+  const entries: CrackedHash[] = [];
 
   try {
-    const crackedContent = fsSync.readFileSync(crackedFile, 'utf8');
-    const potfileContent = fsSync.readFileSync(potfilePath, 'utf8');
-    const results = [
-      ...crackedContent
-        .split('\n')
-        .map(line => line.trim())
-        .filter(Boolean)
-        .map(line => {
-          const [crackedHash, password] = line.split(':');
-          return { hash: crackedHash, password } as CrackedHash;
-        }),
-      ...potfileContent
-        .split('\n')
-        .map(line => line.trim())
-        .filter(Boolean)
-        .map(line => {
-          const [potfileHash, password] = line.split(':');
-          return { hash: potfileHash, password } as CrackedHash;
-        }),
-    ];
+    const sourceFiles = [crackedFile, potfilePath];
+    for (const sourceFile of sourceFiles) {
+      if (!fsSync.existsSync(sourceFile)) {
+        continue;
+      }
 
-    // Filter results by hash, but handle case sensitivity properly
-    const filteredResults = results.filter(
-      r =>
-        // Check exact match first
-        hashesSet.has(r.hash) ||
-        // Check case-insensitive match for compatibility with hashcat output
-        hashes.some(h => h.toLowerCase() === r.hash.toLowerCase())
-    );
-
-    // Remove duplicates while preserving case of original input hashes
-    const uniqueResults = new Map();
-    for (const result of filteredResults) {
-      const lowerHash = result.hash.toLowerCase();
-
-      // If we already have this hash, prefer the one that matches the case of the input
-      if (uniqueResults.has(lowerHash)) {
-        const existingResult = uniqueResults.get(lowerHash);
-        const exactMatchExists = hashes.includes(existingResult.hash);
-        const thisExactMatch = hashes.includes(result.hash);
-
-        // If this result is an exact case match to input and the existing one isn't, replace it
-        if (thisExactMatch && !exactMatchExists) {
-          uniqueResults.set(lowerHash, result);
+      const content = fsSync.readFileSync(sourceFile, 'utf8');
+      for (const line of content.split('\n')) {
+        const parsedEntry = parseCrackedHashLine(line);
+        if (parsedEntry) {
+          entries.push(parsedEntry);
         }
-      } else {
-        uniqueResults.set(lowerHash, result);
       }
     }
 
-    return Array.from(uniqueResults.values());
+    return entries;
   } catch (error) {
-    logger.error('Error reading cracked file:', error);
+    logger.error('Error reading cracked hashes sources:', error);
     return [];
   }
 }
 
-function addHashesToCrackedFile(crackedHashes: CrackedHash[]): void {
-  const crackedFile = path.join(config.hashcat.dirs.hashes, 'cracked.txt');
-  const existingHashes = new Set(readCrackedHashes().map(h => h.hash));
-  const newHashes = crackedHashes.filter(h => !existingHashes.has(h.hash));
-  if (newHashes.length > 0) {
-    fsSync.appendFileSync(
-      crackedFile,
-      '\n' + newHashes.map(h => `${h.hash}:${h.password}`).join('\n')
-    );
+export function readCrackedHashes(): CrackedHash[] {
+  const entries = readCrackedHashesFromSourceFiles();
+  const dedupedByLowerHash = new Map<string, CrackedHash>();
+
+  for (const entry of entries) {
+    const lowerHash = entry.hash.toLowerCase();
+    if (!dedupedByLowerHash.has(lowerHash)) {
+      dedupedByLowerHash.set(lowerHash, entry);
+    }
   }
+
+  return Array.from(dedupedByLowerHash.values());
+}
+
+function resolvePasswordsForInputHashes(
+  inputHashes: string[],
+  knownCrackedHashes: CrackedHash[],
+  isCaseSensitive: boolean
+): HashResult[] {
+  return inputHashes.map(inputHash => {
+    const match = knownCrackedHashes.find(knownHash =>
+      compareHashes(knownHash.hash, inputHash, isCaseSensitive)
+    );
+
+    return {
+      hash: inputHash,
+      password: match?.password ?? null,
+      isCaseSensitive,
+    };
+  });
 }
 
 export interface HashResult {
@@ -181,53 +151,6 @@ export class HashCracker extends EventEmitter {
     // Determine if this hash type is case-sensitive (all hex hashes are not case-sensitive)
     const isCaseSensitive = !type.regex.includes('a-fA-F0-9');
 
-    // Check if hashes are already cracked
-    const existingResults = findInCrackedFileOrPotfile(hashes);
-
-    // Add case sensitivity information to the results
-    existingResults.forEach(result => {
-      result.isCaseSensitive = isCaseSensitive;
-    });
-
-    // Find hashes that need to be cracked (not already in results)
-    // Use case-insensitive comparison for compatibility, but preserve original case
-    const hashesToCrack = hashes.filter(
-      h => !existingResults.some(r => r.hash.toLowerCase() === h.toLowerCase())
-    );
-
-    if (existingResults.length === hashes.length) {
-      // Add hashes that aren't there already to cracked.txt manually
-      addHashesToCrackedFile(existingResults);
-
-      const crackedResults = existingResults
-        .filter((result): result is CrackedHash & { password: string } => result.password != null)
-        .map(result => ({ hash: result.hash, password: result.password }));
-
-      if (crackedResults.length > 0) {
-        const { vault, updatedCount } = applyCrackedPasswordsToCredentialVault(
-          type.id,
-          crackedResults
-        );
-        if (updatedCount > 0) {
-          sendEventToAll('credentialVaultUpdated', { vault });
-        }
-      }
-
-      return {
-        results: existingResults,
-        status: 'completed',
-        debugInfo: {
-          command: 'N/A',
-          output: [
-            `Hashes found in cracked.txt or potfile: ${existingResults
-              .map(r => `${r.hash}:${r.password}`)
-              .join('\n')}`,
-          ],
-          error: [],
-        },
-      } as CrackResult;
-    }
-
     const hashcatPath = config.hashcat.path;
     const hashcatDir = path.dirname(hashcatPath);
     const hashesDir = config.hashcat.dirs.hashes;
@@ -239,7 +162,7 @@ export class HashCracker extends EventEmitter {
 
     // Write hashes to temporary file
     const hashFile = path.join(hashesDir, `${crypto.randomUUID()}.hash`);
-    fsSync.writeFileSync(hashFile, hashesToCrack.join('\n'));
+    fsSync.writeFileSync(hashFile, hashes.join('\n'));
     logger.debug(`Hashes written to temporary file: ${hashFile}`);
 
     // Build base command
@@ -407,31 +330,42 @@ export class HashCracker extends EventEmitter {
           logger.error(`Failed to delete hash file: ${hashFile}`, error);
         }
 
-        const content = fsSync.readFileSync(crackedFile, 'utf8');
-        const results = content
-          .split('\n')
-          .map(line => line.trim())
-          .filter(Boolean)
-          .map(line => {
-            const [crackedHash, password] = line.split(':');
-            return { hash: crackedHash, password, isCaseSensitive };
-          });
-
-        const crackedResults = results.filter(result =>
-          hashesToCrack.some(h => h.toLowerCase() === result.hash.toLowerCase())
-        );
         if (code !== 0 && code !== 1) {
           reject(new Error(`Hashcat process exited with unexpected code ${code}`));
+          return;
         }
 
+        const knownCrackedHashes = readCrackedHashes();
+        const resolvedResults = resolvePasswordsForInputHashes(
+          hashes,
+          knownCrackedHashes,
+          isCaseSensitive
+        );
+
+        const hasRecoveredPasswords = resolvedResults.some(result => result.password != null);
+        const resolvedStatus =
+          debugInfo.statusJson?.status !== undefined
+            ? hashcatStatusToJobStatus(debugInfo.statusJson.status)
+            : resolveJobStatusFromExitCode(code, hasRecoveredPasswords);
+
         resolve({
-          results: crackedResults,
-          status: hashcatStatusToJobStatus(debugInfo.statusJson?.status || 0),
+          results: resolvedResults,
+          status: resolvedStatus,
           debugInfo,
         });
       });
     });
   }
+}
+
+function resolveJobStatusFromExitCode(
+  exitCode: number | null,
+  hasRecoveredPasswords: boolean
+): JobStatus {
+  if (exitCode === 0 || exitCode === 1) {
+    return hasRecoveredPasswords ? 'completed' : 'exhausted';
+  }
+  return 'failed';
 }
 
 /**
