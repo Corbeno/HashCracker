@@ -7,7 +7,7 @@ interface LogoProps {
 
 export default function Logo({ className = '' }: LogoProps) {
   return (
-    <Link href="/" className={`flex items-center ${className}`}>
+    <Link href="/" className={`flex items-center ${className}`} data-testid="app-logo">
       <div className="relative h-8 w-8 mr-2">
         <Image
           src="/favicon.svg"

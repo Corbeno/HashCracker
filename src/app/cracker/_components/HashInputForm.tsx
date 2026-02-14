@@ -77,6 +77,7 @@ export default function HashInputForm({
                 onClick={openBenchmarkModal}
                 className="bg-blue-600 hover:bg-blue-700 rounded-md py-1 px-3 text-sm font-medium transition-colors flex items-center gap-1"
                 title="Run hashcat benchmark"
+                data-testid="open-benchmark"
               >
                 <Image src="/icons/speed.svg" alt="Benchmark" width={16} height={16} />
                 Benchmark
@@ -86,6 +87,7 @@ export default function HashInputForm({
                 onClick={openYoinkModal}
                 className="bg-purple-600 hover:bg-purple-700 rounded-md py-1 px-3 text-sm font-medium transition-colors flex items-center gap-1"
                 title="Extract hashes from text"
+                data-testid="open-yoink"
               >
                 Yoink
               </button>
@@ -93,6 +95,7 @@ export default function HashInputForm({
           </div>
           <textarea
             id="hash-input"
+            data-testid="hash-input"
             value={hashInput}
             onChange={e => setHashInput(e.target.value)}
             className="w-full h-32 bg-gray-900/50 rounded-xl border border-gray-700 p-3 font-mono text-sm"
@@ -110,6 +113,7 @@ export default function HashInputForm({
               label="Hash Type"
               placeholder="Select hash type..."
               searchPlaceholder="Search hash type by name or ID..."
+              testId="hash-type-dropdown"
             />
           </div>
 
@@ -121,12 +125,14 @@ export default function HashInputForm({
               label="Attack Mode"
               placeholder="Select attack mode..."
               searchPlaceholder="Search attack mode..."
+              testId="attack-mode-dropdown"
             />
           </div>
 
           <div className="flex items-end gap-2">
             <button
               type="submit"
+              data-testid="start-cracking"
               className="flex-1 bg-blue-600 hover:bg-blue-700 rounded-xl py-3 font-medium transition-colors"
             >
               Start Cracking

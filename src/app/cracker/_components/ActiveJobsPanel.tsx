@@ -8,8 +8,8 @@ import { getStatusColor, getStatusText } from './active-jobs/status';
 import DebugPanel from './DebugPanel';
 import JobProgressBar from './JobProgressBar';
 
-import { Job } from '@/types/job';
 import { HashVaultEntry } from '@/types/hashVault';
+import { Job } from '@/types/job';
 
 interface ActiveJobsPanelProps {
   jobs: Job[];
@@ -50,7 +50,10 @@ export default function ActiveJobsPanel({
   };
 
   return (
-    <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl border border-gray-700">
+    <div
+      className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl border border-gray-700"
+      data-testid="active-jobs-panel"
+    >
       <h2 className="text-2xl font-bold mb-4">Active Jobs</h2>
       {error && <span className="text-red-400 ml-2">{error}</span>}
       <div className="space-y-4">
@@ -58,10 +61,14 @@ export default function ActiveJobsPanel({
           <div
             key={job.id}
             className="p-4 rounded-xl bg-gray-900/50 border border-gray-700 relative overflow-hidden"
+            data-testid="job-card"
           >
             <div className="flex flex-wrap items-center justify-between mb-2 gap-2">
               <div className="flex flex-wrap items-center gap-2">
-                <span className={`font-medium ${getStatusColor(job.status)}`}>
+                <span
+                  className={`font-medium ${getStatusColor(job.status)}`}
+                  data-testid="job-status"
+                >
                   {getStatusText(job.status)}
                 </span>
                 <span className="text-sm text-gray-400">
@@ -72,6 +79,8 @@ export default function ActiveJobsPanel({
                   onClick={() => copyAllHashesToInput(job.hashes, job.type.id)}
                   className="text-blue-400 hover:text-blue-300 transition-colors p-1.5 rounded-md hover:bg-gray-700/50"
                   title="Replace input with all uncracked hashes"
+                  aria-label="Replace input with all uncracked hashes"
+                  data-testid="job-replace-input"
                 >
                   <Image
                     src="/icons/replace.svg"
@@ -84,6 +93,8 @@ export default function ActiveJobsPanel({
                   onClick={() => copyNonCrackedHashesToInput(job.hashes, job.type.id)}
                   className="text-yellow-400 hover:text-yellow-300 transition-colors p-1.5 rounded-md hover:bg-gray-700/50"
                   title="Append all non-cracked hashes to input"
+                  aria-label="Append all non-cracked hashes to input"
+                  data-testid="job-append-input"
                 >
                   <Image
                     src="/icons/append.svg"
@@ -104,6 +115,7 @@ export default function ActiveJobsPanel({
                   <button
                     onClick={() => handleCancelJob(job.id)}
                     className="text-red-400 hover:text-red-300 transition-colors"
+                    data-testid="job-cancel"
                   >
                     Cancel
                   </button>
@@ -123,6 +135,7 @@ export default function ActiveJobsPanel({
             <button
               onClick={() => setExpandedJob(expandedJob?.id === job.id ? null : job)}
               className="mt-2 text-sm text-gray-400 hover:text-white transition-colors"
+              data-testid="job-toggle-details"
             >
               {expandedJob?.id === job.id ? 'Hide Details' : 'Show Details'}
             </button>

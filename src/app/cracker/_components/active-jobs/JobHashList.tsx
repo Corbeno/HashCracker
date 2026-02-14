@@ -55,6 +55,7 @@ export default function JobHashList({
           <div
             key={`${hash}-${i}`}
             className={`break-all py-1 ${password ? 'text-green-400' : 'text-gray-400'}`}
+            data-testid="job-hash"
           >
             {hash}
             {password && (

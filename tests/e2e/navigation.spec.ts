@@ -1,13 +1,15 @@
 import { expect, test } from '@playwright/test';
 
+import { gotoCracker } from './utils/navigation';
+
 test.describe('Navigation & Static Content', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/');
+    await gotoCracker(page);
   });
 
   test('should load the home page with correct title', async ({ page }) => {
     await expect(page).toHaveTitle(/Hash Cracker/);
-    await expect(page.getByRole('link', { name: 'Hash Cracker Logo Hash Cracker' })).toBeVisible();
+    await expect(page.getByTestId('app-logo').first()).toBeVisible();
   });
 
   test('should show system info panel', async ({ page }) => {

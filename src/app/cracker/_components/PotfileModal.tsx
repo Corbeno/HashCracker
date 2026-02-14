@@ -28,11 +28,19 @@ export default function PotfileModal({ onClose }: PotfileModalProps) {
   const displayContent = content === null ? 'Loading...' : content || 'No content in potfile yet.';
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 backdrop-blur-sm flex items-center justify-center z-50"
+      data-testid="potfile-modal"
+    >
       <div className="bg-gray-800 rounded-xl border border-gray-700 w-full max-w-4xl max-h-[80vh] flex flex-col">
         <div className="flex justify-between items-center p-4 border-b border-gray-700">
           <h2 className="text-xl font-bold">Potfile Contents</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white">
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white"
+            aria-label="Close"
+            data-testid="potfile-close"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-6 w-6"
@@ -50,7 +58,10 @@ export default function PotfileModal({ onClose }: PotfileModalProps) {
           </button>
         </div>
         <div className="p-4 overflow-auto flex-grow">
-          <pre className="font-mono text-sm whitespace-pre-wrap break-all bg-gray-900 p-4 rounded-lg h-full overflow-auto">
+          <pre
+            className="font-mono text-sm whitespace-pre-wrap break-all bg-gray-900 p-4 rounded-lg h-full overflow-auto"
+            data-testid="potfile-content"
+          >
             {displayContent}
           </pre>
         </div>

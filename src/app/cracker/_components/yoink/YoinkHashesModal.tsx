@@ -57,7 +57,10 @@ export default function YoinkHashesModal({ isOpen, onClose, onUseHashes }: Yoink
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+      data-testid="yoink-modal"
+    >
       <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl">
         <div className="flex justify-between items-center p-4 border-b border-gray-700">
           <div>
@@ -69,7 +72,12 @@ export default function YoinkHashesModal({ isOpen, onClose, onUseHashes }: Yoink
               <p className="text-red-400 text-xs mt-1">{extractionResult.error}</p>
             )}
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white transition-colors"
+            aria-label="Close"
+            data-testid="yoink-close"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-6 w-6"
@@ -106,6 +114,7 @@ export default function YoinkHashesModal({ isOpen, onClose, onUseHashes }: Yoink
                   label="Hash Type"
                   placeholder="Select hash type..."
                   searchPlaceholder="Search hash type by name or ID..."
+                  testId="yoink-hash-type"
                 />
               )}
             </div>
@@ -127,6 +136,7 @@ export default function YoinkHashesModal({ isOpen, onClose, onUseHashes }: Yoink
               </div>
               <textarea
                 id="input-text"
+                data-testid="yoink-input"
                 className="bg-gray-700 text-white p-3 rounded-md h-80 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
                 value={inputText}
                 onChange={e => setInputText(e.target.value)}
@@ -147,6 +157,7 @@ export default function YoinkHashesModal({ isOpen, onClose, onUseHashes }: Yoink
                 <div
                   className="bg-gray-700 text-white p-3 rounded-md flex-1 overflow-auto font-mono text-sm"
                   style={{ whiteSpace: 'pre-wrap' }}
+                  data-testid="yoink-output"
                 >
                   {displayHashes.length === 0 ? (
                     <span className="text-gray-400">Extracted hashes will appear here...</span>
@@ -175,6 +186,7 @@ export default function YoinkHashesModal({ isOpen, onClose, onUseHashes }: Yoink
           <button
             onClick={handleUseHashes}
             disabled={!outputText}
+            data-testid="yoink-use-uncracked"
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
           >
             <Image src="/icons/hash.svg" alt="Use hashes" width={16} height={16} />

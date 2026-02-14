@@ -42,11 +42,19 @@ export default function BenchmarkModal({ isOpen, onClose }: BenchmarkModalProps)
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+      data-testid="benchmark-modal"
+    >
       <div className="bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl">
         <div className="flex justify-between items-center p-4 border-b border-gray-700">
           <h2 className="text-xl font-semibold text-white">Hashcat Benchmark</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-white transition-colors">
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-white transition-colors"
+            aria-label="Close"
+            data-testid="benchmark-close"
+          >
             <svg
               xmlns="http://www.w3.org/2000/svg"
               className="h-6 w-6"
@@ -74,11 +82,13 @@ export default function BenchmarkModal({ isOpen, onClose }: BenchmarkModalProps)
                 label="Hash Type (optional)"
                 placeholder="Select hash type or benchmark all types..."
                 searchPlaceholder="Search hash type by name or ID..."
+                testId="benchmark-hash-type"
               />
             </div>
             <button
               onClick={() => runBenchmark(selectedHashType)}
               disabled={isLoading}
+              data-testid="benchmark-run"
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2 h-10"
             >
               {isLoading ? (
@@ -109,7 +119,7 @@ export default function BenchmarkModal({ isOpen, onClose }: BenchmarkModalProps)
                   <th className="px-6 py-3">Speed</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody data-testid="benchmark-results-tbody">
                 {results.length === 0 ? (
                   <tr className="border-b border-gray-700">
                     <td colSpan={2} className="px-6 py-4 text-center text-gray-400">

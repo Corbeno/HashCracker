@@ -44,12 +44,16 @@ export default function CrackedHashesPanel({
   }, []);
 
   return (
-    <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl border border-gray-700">
+    <div
+      className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl border border-gray-700"
+      data-testid="cracked-hashes-panel"
+    >
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">Cracked Hashes</h2>
         <button
           onClick={onViewPotfile}
           className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+          data-testid="open-potfile"
         >
           View Potfile
         </button>
@@ -68,7 +72,7 @@ export default function CrackedHashesPanel({
                 <th className="px-3 py-2">Password</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800">
+            <tbody className="divide-y divide-gray-800" data-testid="cracked-hashes-tbody">
               {visibleHashes.map(entry => {
                 const typeName =
                   config.hashcat.hashTypes[String(entry.hashType)]?.name ??

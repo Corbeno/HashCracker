@@ -21,6 +21,7 @@ interface SearchableDropdownProps {
   renderInPortal?: boolean;
   portalClassName?: string;
   prioritizedOptionIds?: Array<string | number>;
+  testId?: string;
 }
 
 export default function SearchableDropdown({
@@ -39,6 +40,7 @@ export default function SearchableDropdown({
   renderInPortal = true,
   portalClassName = '',
   prioritizedOptionIds = [],
+  testId,
 }: SearchableDropdownProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen && !disabled);
   const [searchTerm, setSearchTerm] = useState('');
@@ -247,7 +249,7 @@ export default function SearchableDropdown({
   const renderOptionFn = renderOption || defaultRenderOption;
 
   return (
-    <div className={`relative ${className}`}>
+    <div className={`relative ${className}`} data-testid={testId}>
       {label && <label className="block text-sm font-medium mb-2">{label}</label>}
 
       <div className="relative" ref={containerRef}>
@@ -263,6 +265,7 @@ export default function SearchableDropdown({
             }`}
             disabled={disabled}
             data-searchable-dropdown-trigger="true"
+            data-testid={testId ? `${testId}-trigger` : undefined}
           />
           <div
             className={`absolute pointer-events-none ${compact ? 'right-2 top-1.5' : 'right-3 top-3'}`}
@@ -350,13 +353,14 @@ export default function SearchableDropdown({
                       compact ? 'p-1.5 text-xs' : 'p-2 text-sm'
                     }`}
                     data-searchable-dropdown-search="true"
+                    data-testid={testId ? `${testId}-search` : undefined}
                     aria-expanded={isOpen}
                     aria-haspopup="listbox"
                     aria-controls="dropdown-listbox"
                   />
                 </div>
 
-                <div id="dropdown-listbox">
+                <div id="dropdown-listbox" data-testid={testId ? `${testId}-listbox` : undefined}>
                   {filteredOptions.length > 0 ? (
                     filteredOptions.map((option, index) => (
                       <div
