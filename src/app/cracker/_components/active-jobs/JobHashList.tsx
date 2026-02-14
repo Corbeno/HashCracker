@@ -1,19 +1,35 @@
 import { useState } from 'react';
 
 import ShowMoreButton from '@/components/ui/ShowMoreButton';
-import { compareHashes } from '@/utils/clientHashUtils';
-import { CrackedHash } from '@/utils/hashUtils';
+import { HashVaultEntry } from '@/types/hashVault';
+import { normalizeHashForType } from '@/utils/hashNormalization';
 
 interface JobHashListProps {
   jobId: string;
   hashes: string[];
-  crackedHashes: CrackedHash[];
+  crackedHashes: HashVaultEntry[];
+  hashTypeId: number;
 }
 
 const MAX_VISIBLE_HASHES = 15;
 
-export default function JobHashList({ jobId, hashes, crackedHashes }: JobHashListProps) {
+export default function JobHashList({
+  jobId,
+  hashes,
+  crackedHashes,
+  hashTypeId,
+}: JobHashListProps) {
   const [expandedHashes, setExpandedHashes] = useState<Set<string>>(new Set());
+
+  const crackedByHash = new Map<string, string>();
+  for (const entry of crackedHashes) {
+    if (entry.hashType !== hashTypeId) continue;
+    const key = normalizeHashForType(hashTypeId, entry.hash);
+    if (!key) continue;
+    if (!crackedByHash.has(key)) {
+      crackedByHash.set(key, entry.password);
+    }
+  }
 
   const isExpanded = expandedHashes.has(jobId);
   const visibleHashes = hashes.slice(0, isExpanded ? undefined : MAX_VISIBLE_HASHES);
@@ -33,18 +49,18 @@ export default function JobHashList({ jobId, hashes, crackedHashes }: JobHashLis
   return (
     <div className="font-mono text-sm space-y-1 mt-3">
       {visibleHashes.map((hash, i) => {
-        const crackedHash = crackedHashes.find(ch => compareHashes(ch.hash, hash, true));
+        const password = crackedByHash.get(normalizeHashForType(hashTypeId, hash));
 
         return (
           <div
             key={`${hash}-${i}`}
-            className={`break-all py-1 ${crackedHash ? 'text-green-400' : 'text-gray-400'}`}
+            className={`break-all py-1 ${password ? 'text-green-400' : 'text-gray-400'}`}
           >
             {hash}
-            {crackedHash && (
+            {password && (
               <span>
                 <span className="text-gray-500 mx-1">-&gt;</span>
-                <span className="text-white">{crackedHash.password}</span>
+                <span className="text-white">{password}</span>
               </span>
             )}
           </div>

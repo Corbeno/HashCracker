@@ -883,4 +883,8 @@ const hashTypes: HashTypes = {
   },
 };
 
+export const HASH_TYPE_CASE_SENSITIVITY: Record<number, boolean> = Object.fromEntries(
+  Object.entries(hashTypes).map(([id, hashType]) => [Number(id), isHashTypeCaseSensitive(hashType)])
+);
+
 export default hashTypes;

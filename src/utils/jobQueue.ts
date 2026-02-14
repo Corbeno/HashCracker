@@ -2,12 +2,14 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 
 import { applyCrackedPasswordsToCredentialVault } from './credentialVaultStore';
-import { HashcatStatusJson, HashCracker, HashResult } from './hashUtils';
+import { HashcatStatusJson, HashCracker } from './hashUtils';
+import { readHashVault, upsertCrackedHashes } from './hashVaultStore';
 import { logger } from './logger';
 import { sendEventToAll, sendJobsToAll } from './miscUtils';
 
 import { HashcatMode } from '@/config/config';
 import { HashType } from '@/config/hashTypes';
+import type { HashResult } from '@/types/hashResults';
 
 const execAsync = promisify(exec);
 
@@ -183,11 +185,13 @@ export class JobQueue {
         job.results = result.results;
         job.debugInfo = result.debugInfo;
 
-        const crackedResults = result.results
-          .filter((entry): entry is HashResult & { password: string } => entry.password != null)
-          .map(entry => ({ hash: entry.hash, password: entry.password }));
+        const crackedResults: HashResult[] = result.results.filter(
+          (entry): entry is HashResult & { password: string } => entry.password != null
+        );
 
         if (crackedResults.length > 0) {
+          upsertCrackedHashes(job.type.id, crackedResults);
+
           const { vault, updatedCount } = applyCrackedPasswordsToCredentialVault(
             job.type.id,
             crackedResults
@@ -195,6 +199,9 @@ export class JobQueue {
           if (updatedCount > 0) {
             sendEventToAll('credentialVaultUpdated', { vault });
           }
+
+          // Notify clients that cracked hashes changed.
+          sendEventToAll('crackedHashes', { hashes: readHashVault() });
         }
 
         this.completeCurrentJob();

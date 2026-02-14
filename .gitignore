@@ -55,6 +55,9 @@ desktop.ini
 /data/credential-vault.sqlite
 /data/credential-vault.sqlite-shm
 /data/credential-vault.sqlite-wal
+/data/hash-vault.sqlite
+/data/hash-vault.sqlite-shm
+/data/hash-vault.sqlite-wal
 /data/hashes/*
 /data/wordlists/*
 /data/rules/*

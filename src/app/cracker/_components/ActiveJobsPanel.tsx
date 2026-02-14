@@ -9,15 +9,15 @@ import DebugPanel from './DebugPanel';
 import JobProgressBar from './JobProgressBar';
 
 import { Job } from '@/types/job';
-import { CrackedHash } from '@/utils/hashUtils';
+import { HashVaultEntry } from '@/types/hashVault';
 
 interface ActiveJobsPanelProps {
   jobs: Job[];
-  crackedHashes: CrackedHash[];
+  crackedHashes: HashVaultEntry[];
   expandedJob: Job | null;
   setExpandedJob: (job: Job | null) => void;
-  copyAllHashesToInput: (hashes: string[]) => void;
-  copyNonCrackedHashesToInput: (hashes: string[]) => void;
+  copyAllHashesToInput: (hashes: string[], hashTypeId: number) => void;
+  copyNonCrackedHashesToInput: (hashes: string[], hashTypeId: number) => void;
 }
 
 export default function ActiveJobsPanel({
@@ -69,7 +69,7 @@ export default function ActiveJobsPanel({
                 </span>
                 {/* Copy buttons with tooltips */}
                 <button
-                  onClick={() => copyAllHashesToInput(job.hashes)}
+                  onClick={() => copyAllHashesToInput(job.hashes, job.type.id)}
                   className="text-blue-400 hover:text-blue-300 transition-colors p-1.5 rounded-md hover:bg-gray-700/50"
                   title="Replace input with all uncracked hashes"
                 >
@@ -81,7 +81,7 @@ export default function ActiveJobsPanel({
                   />
                 </button>
                 <button
-                  onClick={() => copyNonCrackedHashesToInput(job.hashes)}
+                  onClick={() => copyNonCrackedHashesToInput(job.hashes, job.type.id)}
                   className="text-yellow-400 hover:text-yellow-300 transition-colors p-1.5 rounded-md hover:bg-gray-700/50"
                   title="Append all non-cracked hashes to input"
                 >
@@ -111,7 +111,12 @@ export default function ActiveJobsPanel({
               </div>
             </div>
 
-            <JobHashList jobId={job.id} hashes={job.hashes} crackedHashes={crackedHashes} />
+            <JobHashList
+              jobId={job.id}
+              hashes={job.hashes}
+              crackedHashes={crackedHashes}
+              hashTypeId={job.type.id}
+            />
 
             {expandedJob?.id === job.id && job.debugInfo && <DebugPanel job={job} />}
 

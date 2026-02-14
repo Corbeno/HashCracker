@@ -1,5 +1,4 @@
 import { Job } from '@/types/job';
-import { CrackedHash } from '@/utils/hashUtils';
 
 interface DebugPanelProps {
   job: Job;
@@ -28,7 +27,7 @@ export default function DebugPanel({ job }: DebugPanelProps) {
       <div>
         <h3 className="text-sm font-medium text-gray-400 mb-2">Recovered hashes for this job:</h3>
         <div className="space-y-2">
-          {job.results?.map((result: CrackedHash, i: number) => (
+          {job.results?.map((result, i) => (
             <div key={i} className="font-mono text-sm">
               <span className="text-gray-400">{result.hash}</span>
               {result.password && (

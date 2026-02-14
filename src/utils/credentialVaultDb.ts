@@ -3,7 +3,7 @@ import path from 'path';
 
 import Database from 'better-sqlite3';
 
-import { logger } from './logger';
+import { withSqlErrorLogging } from './sqliteUtils';
 
 const VAULT_DB_PATH = path.join(process.cwd(), 'data', 'credential-vault.sqlite');
 
@@ -100,32 +100,13 @@ function ensureVaultDbParentExists(): void {
   }
 }
 
-function toErrorPayload(error: unknown): unknown {
-  if (!(error instanceof Error)) return error;
-  return {
-    name: error.name,
-    message: error.message,
-    stack: error.stack,
-  };
-}
-
-function withSqlErrorLogging<T>(operation: string, execute: () => T, context?: unknown): T {
-  try {
-    return execute();
-  } catch (error) {
-    void logger.debug('Credential vault SQL query failed', {
-      operation,
-      context,
-      error: toErrorPayload(error),
-    });
-    throw error;
-  }
-}
+const withVaultSql = <T>(operation: string, execute: () => T, context?: unknown): T =>
+  withSqlErrorLogging('Credential vault', operation, execute, context);
 
 function getDatabase(): Database.Database {
   if (database) return database;
 
-  withSqlErrorLogging('database.init', () => {
+  withVaultSql('database.init', () => {
     ensureVaultDbParentExists();
     database = new Database(VAULT_DB_PATH);
     database.pragma('journal_mode = WAL');
@@ -167,7 +148,7 @@ function getDatabase(): Database.Database {
 }
 
 export function withVaultTransaction<T>(action: () => T): T {
-  return withSqlErrorLogging('transaction.execute', () => {
+  return withVaultSql('transaction.execute', () => {
     const db = getDatabase();
     const transaction = db.transaction(action);
     return transaction();
@@ -175,7 +156,7 @@ export function withVaultTransaction<T>(action: () => T): T {
 }
 
 export function getAllTabs(): VaultTabRow[] {
-  return withSqlErrorLogging('tabs.getAll', () =>
+  return withVaultSql('tabs.getAll', () =>
     getDatabase()
       .prepare<[], VaultTabRow>('SELECT id, name, position FROM vault_tabs ORDER BY position ASC')
       .all()
@@ -183,7 +164,7 @@ export function getAllTabs(): VaultTabRow[] {
 }
 
 export function getAllCredentials(): VaultCredentialRow[] {
-  return withSqlErrorLogging('credentials.getAll', () =>
+  return withVaultSql('credentials.getAll', () =>
     getDatabase()
       .prepare<[], VaultCredentialRow>(
         `
@@ -205,7 +186,7 @@ export function getAllCredentials(): VaultCredentialRow[] {
 }
 
 export function getCredentialsForTab(tabId: string): VaultCredentialRow[] {
-  return withSqlErrorLogging(
+  return withVaultSql(
     'credentials.getForTab',
     () =>
       getDatabase()
@@ -231,14 +212,14 @@ export function getCredentialsForTab(tabId: string): VaultCredentialRow[] {
 }
 
 export function countTabs(): number {
-  const row = withSqlErrorLogging('tabs.count', () =>
+  const row = withVaultSql('tabs.count', () =>
     getDatabase().prepare<[], CountRow>('SELECT COUNT(*) as count FROM vault_tabs').get()
   );
   return row?.count ?? 0;
 }
 
 export function getMaxTabPosition(): number {
-  const row = withSqlErrorLogging('tabs.getMaxPosition', () =>
+  const row = withVaultSql('tabs.getMaxPosition', () =>
     getDatabase()
       .prepare<
         [],
@@ -250,7 +231,7 @@ export function getMaxTabPosition(): number {
 }
 
 export function insertTab(params: VaultTabParams): void {
-  withSqlErrorLogging(
+  withVaultSql(
     'tabs.insert',
     () =>
       getDatabase()
@@ -263,7 +244,7 @@ export function insertTab(params: VaultTabParams): void {
 }
 
 export function renameTabIfChanged(params: RenameTabParams): number {
-  return withSqlErrorLogging(
+  return withVaultSql(
     'tabs.renameIfChanged',
     () =>
       getDatabase()
@@ -276,7 +257,7 @@ export function renameTabIfChanged(params: RenameTabParams): number {
 }
 
 export function deleteTabById(id: string): number {
-  return withSqlErrorLogging(
+  return withVaultSql(
     'tabs.deleteById',
     () =>
       getDatabase().prepare<DeleteTabParams>('DELETE FROM vault_tabs WHERE id = @id').run({ id })
@@ -286,7 +267,7 @@ export function deleteTabById(id: string): number {
 }
 
 export function tabExists(id: string): boolean {
-  const row = withSqlErrorLogging(
+  const row = withVaultSql(
     'tabs.exists',
     () =>
       getDatabase()
@@ -301,7 +282,7 @@ export function tabExists(id: string): boolean {
 }
 
 export function getMaxCredentialPositionForTab(tabId: string): number {
-  const row = withSqlErrorLogging(
+  const row = withVaultSql(
     'credentials.getMaxPositionForTab',
     () =>
       getDatabase()
@@ -316,7 +297,7 @@ export function getMaxCredentialPositionForTab(tabId: string): number {
 }
 
 export function insertCredential(params: VaultCredentialParams): void {
-  withSqlErrorLogging(
+  withVaultSql(
     'credentials.insert',
     () =>
       getDatabase()
@@ -352,7 +333,7 @@ export function getCredentialInTab(
   tabId: string,
   credentialId: string
 ): VaultCredentialRow | undefined {
-  return withSqlErrorLogging(
+  return withVaultSql(
     'credentials.getInTab',
     () =>
       getDatabase()
@@ -377,7 +358,7 @@ export function getCredentialInTab(
 }
 
 export function updateCredentialIfChanged(params: CredentialUpdateParams): number {
-  return withSqlErrorLogging(
+  return withVaultSql(
     'credentials.updateIfChanged',
     () =>
       getDatabase()
@@ -406,7 +387,7 @@ export function updateCredentialIfChanged(params: CredentialUpdateParams): numbe
 }
 
 export function deleteCredentialInTab(tabId: string, credentialId: string): number {
-  return withSqlErrorLogging(
+  return withVaultSql(
     'credentials.deleteInTab',
     () =>
       getDatabase()
@@ -419,7 +400,7 @@ export function deleteCredentialInTab(tabId: string, credentialId: string): numb
 }
 
 export function deleteCredentialsForTab(tabId: string): number {
-  return withSqlErrorLogging(
+  return withVaultSql(
     'credentials.deleteForTab',
     () =>
       getDatabase()
@@ -430,21 +411,21 @@ export function deleteCredentialsForTab(tabId: string): number {
 }
 
 export function deleteAllCredentials(): number {
-  return withSqlErrorLogging(
+  return withVaultSql(
     'credentials.deleteAll',
     () => getDatabase().prepare('DELETE FROM vault_credentials').run().changes
   );
 }
 
 export function deleteAllTabs(): number {
-  return withSqlErrorLogging(
+  return withVaultSql(
     'tabs.deleteAll',
     () => getDatabase().prepare('DELETE FROM vault_tabs').run().changes
   );
 }
 
 export function getBlankPasswordCredentialsByHashType(hashType: number): CredentialHashRow[] {
-  return withSqlErrorLogging(
+  return withVaultSql(
     'credentials.getBlankPasswordByHashType',
     () =>
       getDatabase()
@@ -461,7 +442,7 @@ export function getBlankPasswordCredentialsByHashType(hashType: number): Credent
 }
 
 export function updateCredentialPasswordById(id: string, password: string): number {
-  return withSqlErrorLogging(
+  return withVaultSql(
     'credentials.updatePasswordById',
     () =>
       getDatabase()

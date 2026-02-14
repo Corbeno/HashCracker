@@ -12,12 +12,12 @@ import { logger } from './logger';
 
 import config from '@/config';
 import { HashcatMode } from '@/config/config';
-import { HashType } from '@/config/hashTypes';
+import { HashType, isHashTypeCaseSensitive } from '@/config/hashTypes';
+import type { HashResult } from '@/types/hashResults';
 
-export interface CrackedHash {
+interface CrackedPair {
   hash: string;
   password: string;
-  isCaseSensitive?: boolean;
 }
 
 export interface HashcatStatusJson {
@@ -53,7 +53,7 @@ export interface HashcatStatusJson {
   estimated_stop: number;
 }
 
-function parseCrackedHashLine(line: string): CrackedHash | null {
+function parseCrackedHashLine(line: string): CrackedPair | null {
   const trimmed = line.trim();
   if (!trimmed) {
     return null;
@@ -69,52 +69,65 @@ function parseCrackedHashLine(line: string): CrackedHash | null {
   return { hash, password };
 }
 
-function readCrackedHashesFromSourceFiles(): CrackedHash[] {
-  const crackedFile = path.join(config.hashcat.dirs.hashes, 'cracked.txt');
-  const potfilePath =
-    config.hashcat.potfilePath || path.join(config.hashcat.dirs.hashes, 'hashcat.potfile');
-  const entries: CrackedHash[] = [];
+async function readCrackedPairsFromHashcatShow(
+  hashcatPath: string,
+  hashcatDir: string,
+  hashTypeId: number,
+  hashFilePath: string,
+  potfilePath: string
+): Promise<CrackedPair[]> {
+  return new Promise((resolve, reject) => {
+    const args = [
+      '--show',
+      '-m',
+      hashTypeId.toString(),
+      '--potfile-path',
+      potfilePath,
+      hashFilePath,
+    ];
 
-  try {
-    const sourceFiles = [crackedFile, potfilePath];
-    for (const sourceFile of sourceFiles) {
-      if (!fsSync.existsSync(sourceFile)) {
-        continue;
+    const proc = spawn(hashcatPath, args, {
+      cwd: hashcatDir,
+      env: {
+        ...process.env,
+        PATH: `${hashcatDir}${path.delimiter}${process.env.PATH || ''}`,
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+
+    const entries: CrackedPair[] = [];
+
+    const stdoutReadLine = readline.createInterface({
+      input: proc.stdout,
+      crlfDelay: Infinity,
+    });
+    stdoutReadLine.on('line', line => {
+      const parsed = parseCrackedHashLine(line);
+      if (parsed) entries.push(parsed);
+    });
+
+    let stderr = '';
+    proc.stderr.on('data', chunk => {
+      stderr += chunk.toString();
+    });
+
+    proc.on('error', error => {
+      reject(error);
+    });
+
+    proc.on('close', code => {
+      if (code === 0 || code === 1) {
+        resolve(entries);
+        return;
       }
-
-      const content = fsSync.readFileSync(sourceFile, 'utf8');
-      for (const line of content.split('\n')) {
-        const parsedEntry = parseCrackedHashLine(line);
-        if (parsedEntry) {
-          entries.push(parsedEntry);
-        }
-      }
-    }
-
-    return entries;
-  } catch (error) {
-    logger.error('Error reading cracked hashes sources:', error);
-    return [];
-  }
-}
-
-export function readCrackedHashes(): CrackedHash[] {
-  const entries = readCrackedHashesFromSourceFiles();
-  const dedupedByLowerHash = new Map<string, CrackedHash>();
-
-  for (const entry of entries) {
-    const lowerHash = entry.hash.toLowerCase();
-    if (!dedupedByLowerHash.has(lowerHash)) {
-      dedupedByLowerHash.set(lowerHash, entry);
-    }
-  }
-
-  return Array.from(dedupedByLowerHash.values());
+      reject(new Error(`hashcat --show exited with code ${code}. ${stderr.trim()}`));
+    });
+  });
 }
 
 function resolvePasswordsForInputHashes(
   inputHashes: string[],
-  knownCrackedHashes: CrackedHash[],
+  knownCrackedHashes: CrackedPair[],
   isCaseSensitive: boolean
 ): HashResult[] {
   return inputHashes.map(inputHash => {
@@ -125,15 +138,8 @@ function resolvePasswordsForInputHashes(
     return {
       hash: inputHash,
       password: match?.password ?? null,
-      isCaseSensitive,
     };
   });
-}
-
-export interface HashResult {
-  hash: string;
-  password: string | null;
-  isCaseSensitive?: boolean;
 }
 
 export interface CrackResult {
@@ -148,17 +154,19 @@ export class HashCracker extends EventEmitter {
       throw new Error('Hashcat path not configured. Please set HASHCAT_PATH in .env');
     }
 
-    // Determine if this hash type is case-sensitive (all hex hashes are not case-sensitive)
-    const isCaseSensitive = !type.regex.includes('a-fA-F0-9');
+    const isCaseSensitive = isHashTypeCaseSensitive(type);
 
     const hashcatPath = config.hashcat.path;
     const hashcatDir = path.dirname(hashcatPath);
     const hashesDir = config.hashcat.dirs.hashes;
-    const crackedFile = path.join(hashesDir, 'cracked.txt');
+    const potfilePath = config.hashcat.potfilePath || path.join(hashesDir, 'hashcat.potfile');
 
     // Ensure directories exist
     fsSync.mkdirSync(hashesDir, { recursive: true });
-    fsSync.mkdirSync(path.dirname(crackedFile), { recursive: true });
+    fsSync.mkdirSync(path.dirname(potfilePath), { recursive: true });
+    if (!fsSync.existsSync(potfilePath)) {
+      fsSync.writeFileSync(potfilePath, '');
+    }
 
     // Write hashes to temporary file
     const hashFile = path.join(hashesDir, `${crypto.randomUUID()}.hash`);
@@ -172,10 +180,8 @@ export class HashCracker extends EventEmitter {
       type.id.toString(),
       '-a',
       (mode.attackMode ?? 0).toString(),
-      '-o',
-      crackedFile,
       '--potfile-path',
-      config.hashcat.potfilePath || path.join(hashesDir, 'hashcat.potfile'),
+      potfilePath,
       '--status',
       '--status-json',
       `--status-timer=${config.hashcat.statusTimer}`,
@@ -323,36 +329,49 @@ export class HashCracker extends EventEmitter {
           this.emit('debug', debugInfo);
         }
 
-        // Clean up temporary hash file
-        try {
-          fsSync.unlinkSync(hashFile);
-        } catch (error) {
-          logger.error(`Failed to delete hash file: ${hashFile}`, error);
-        }
+        const finalize = async () => {
+          if (code !== 0 && code !== 1) {
+            throw new Error(`Hashcat process exited with unexpected code ${code}`);
+          }
 
-        if (code !== 0 && code !== 1) {
-          reject(new Error(`Hashcat process exited with unexpected code ${code}`));
-          return;
-        }
+          const knownCrackedHashes = await readCrackedPairsFromHashcatShow(
+            hashcatPath,
+            hashcatDir,
+            type.id,
+            hashFile,
+            potfilePath
+          );
 
-        const knownCrackedHashes = readCrackedHashes();
-        const resolvedResults = resolvePasswordsForInputHashes(
-          hashes,
-          knownCrackedHashes,
-          isCaseSensitive
-        );
+          const resolvedResults = resolvePasswordsForInputHashes(
+            hashes,
+            knownCrackedHashes,
+            isCaseSensitive
+          );
 
-        const hasRecoveredPasswords = resolvedResults.some(result => result.password != null);
-        const resolvedStatus =
-          debugInfo.statusJson?.status !== undefined
-            ? hashcatStatusToJobStatus(debugInfo.statusJson.status)
-            : resolveJobStatusFromExitCode(code, hasRecoveredPasswords);
+          const hasRecoveredPasswords = resolvedResults.some(result => result.password != null);
+          const resolvedStatus =
+            debugInfo.statusJson?.status !== undefined
+              ? hashcatStatusToJobStatus(debugInfo.statusJson.status)
+              : resolveJobStatusFromExitCode(code, hasRecoveredPasswords);
 
-        resolve({
-          results: resolvedResults,
-          status: resolvedStatus,
-          debugInfo,
-        });
+          return {
+            results: resolvedResults,
+            status: resolvedStatus,
+            debugInfo,
+          } as CrackResult;
+        };
+
+        finalize()
+          .then(payload => resolve(payload))
+          .catch(error => reject(error))
+          .finally(() => {
+            // Clean up temporary hash file
+            try {
+              fsSync.unlinkSync(hashFile);
+            } catch (error) {
+              logger.error(`Failed to delete hash file: ${hashFile}`, error);
+            }
+          });
       });
     });
   }

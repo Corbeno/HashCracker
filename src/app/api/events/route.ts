@@ -5,7 +5,7 @@ import path from 'path';
 import { NextRequest } from 'next/server';
 
 import config from '@/config/config';
-import { readCrackedHashes, readPotfile } from '@/utils/hashUtils';
+import { readPotfile } from '@/utils/hashUtils';
 import { logger } from '@/utils/logger';
 import { sendEventToAll, SSEClient } from '@/utils/miscUtils';
 import { getSystemInfo, initSystemInfoCache } from '@/utils/systemInfoCache';
@@ -42,21 +42,17 @@ if (!global.systemInfoInterval) {
   }, config.hashcat.statusTimer * 1000);
 }
 
-// Setup file watcher for cracked hashes
-const crackedFile = path.join(config.hashcat.dirs.hashes, 'cracked.txt');
-if (!global.fileWatcher && fs.existsSync(path.dirname(crackedFile))) {
-  global.fileWatcher = watch(path.dirname(crackedFile), async (eventType, filename) => {
+// Setup file watcher for potfile updates
+const potfilePath =
+  config.hashcat.potfilePath || path.join(config.hashcat.dirs.hashes, 'hashcat.potfile');
+if (!global.fileWatcher && fs.existsSync(path.dirname(potfilePath))) {
+  global.fileWatcher = watch(path.dirname(potfilePath), async (eventType, filename) => {
     if (global.eventClients.size === 0) {
       return;
     }
     try {
-      if (filename === path.basename(crackedFile) && eventType === 'change') {
-        logger.debug('Cracked file changed, sending update to clients');
-        // Read the cracked hashes and send to all clients
-        const hashes = readCrackedHashes();
-        sendEventToAll('crackedHashes', { hashes });
-
-        // Also update the potfile
+      if (filename === path.basename(potfilePath) && eventType === 'change') {
+        logger.debug('Potfile changed, sending update to clients');
         const content = await readPotfile();
         sendEventToAll('potfileUpdate', { content });
       }

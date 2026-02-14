@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import config from '@/config/config';
-import { readCrackedHashes, readPotfile } from '@/utils/hashUtils';
+import { readPotfile } from '@/utils/hashUtils';
+import { readHashVault } from '@/utils/hashVaultStore';
 import { jobQueue } from '@/utils/jobQueue';
 import { logger } from '@/utils/logger';
 import { getSystemInfo, initSystemInfoCache } from '@/utils/systemInfoCache';
@@ -31,7 +32,7 @@ export async function GET(_req: NextRequest) {
       ),
 
       // 2. Get cracked hashes
-      Promise.resolve(readCrackedHashes()),
+      Promise.resolve(readHashVault()),
 
       // 3. Get potfile content
       readPotfile(),

@@ -30,6 +30,8 @@ import {
 } from './credentialVaultMapper';
 import { logger } from './logger';
 
+import { normalizeHashForType } from '@/utils/hashNormalization';
+
 import {
   Credential,
   CredentialField,
@@ -37,6 +39,7 @@ import {
   CredentialVaultMutation,
   CredentialVaultTab,
 } from '@/types/credentialVault';
+import type { HashResult } from '@/types/hashResults';
 import { LogImportResult, LogImportType } from '@/types/logImport';
 import { mergeImportedCredentials } from '@/utils/logImport/merge';
 import { parseImpacketNtlmLog } from '@/utils/logImport/parsers/impacketNtlm';
@@ -302,7 +305,7 @@ export function applyCredentialVaultLogImport(
 
 export function applyCrackedPasswordsToCredentialVault(
   hashType: number,
-  crackedResults: Array<{ hash: string; password: string }>
+  crackedResults: HashResult[]
 ): { vault: CredentialVaultDocument; updatedCount: number } {
   if (crackedResults.length === 0) {
     return { vault: loadVaultFromDatabase(), updatedCount: 0 };
@@ -310,7 +313,8 @@ export function applyCrackedPasswordsToCredentialVault(
 
   const crackedByHash = new Map<string, string>();
   for (const result of crackedResults) {
-    const normalizedHash = result.hash.trim().toLowerCase();
+    if (result.password == null) continue;
+    const normalizedHash = normalizeHashForType(hashType, result.hash);
     if (!normalizedHash) continue;
     crackedByHash.set(normalizedHash, result.password);
   }
@@ -320,7 +324,7 @@ export function applyCrackedPasswordsToCredentialVault(
   const candidates = getBlankPasswordCredentialsByHashType(hashType);
   const updates = candidates
     .map(candidate => {
-      const crackedPassword = crackedByHash.get(candidate.hash.trim().toLowerCase());
+      const crackedPassword = crackedByHash.get(normalizeHashForType(hashType, candidate.hash));
       if (crackedPassword == null) return null;
       return { id: candidate.id, password: crackedPassword };
     })

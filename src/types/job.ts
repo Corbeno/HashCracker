@@ -1,6 +1,7 @@
 import { HashcatMode } from '@/config/config';
 import { HashType } from '@/config/hashTypes';
-import { HashResult, HashcatStatusJson } from '@/utils/hashUtils';
+import type { HashResult } from '@/types/hashResults';
+import { HashcatStatusJson } from '@/utils/hashUtils';
 
 export type JobStatus =
   | 'pending'

@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
 
 import { Job } from '@/types/job';
-import { CrackedHash } from '@/utils/hashUtils';
+import { HashVaultEntry } from '@/types/hashVault';
 
 type ConnectionStatus = 'connected' | 'disconnected';
 
 interface UseConnectionResult {
   connectedStatus: ConnectionStatus;
   jobs: Job[];
-  crackedHashes: CrackedHash[];
+  crackedHashes: HashVaultEntry[];
   potfileContent: string;
   fetchInitialState: () => Promise<void>;
   toggleLiveViewing: () => void;
@@ -18,7 +18,7 @@ interface UseConnectionResult {
 export default function useConnection(): UseConnectionResult {
   const [connectedStatus, setConnectedStatus] = useState<ConnectionStatus>('disconnected');
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [crackedHashes, setCrackedHashes] = useState<CrackedHash[]>([]);
+  const [crackedHashes, setCrackedHashes] = useState<HashVaultEntry[]>([]);
   const [potfileContent, setPotfileContent] = useState('');
   const eventSourceRef = useRef<EventSource | null>(null);
   const [liveViewingEnabled, setLiveViewingEnabled] = useState<boolean | null>(null);

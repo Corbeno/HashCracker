@@ -75,9 +75,13 @@ export default function useYoinkHashes(isOpen: boolean): UseYoinkHashesResult {
     }
   }, [selectedHashType, setSelectedHashType]);
 
-  const fetchCrackedHashes = useCallback(async () => {
+  const fetchCrackedHashes = useCallback(async (hashType: number | null) => {
+    if (hashType === null) {
+      setCrackedHashes({});
+      return;
+    }
     try {
-      const response = await fetch('/api/cracked-hashes');
+      const response = await fetch(`/api/cracked-hashes?hashType=${hashType}`);
       if (!response.ok) {
         throw new Error(`Error: ${response.status}`);
       }
@@ -91,8 +95,8 @@ export default function useYoinkHashes(isOpen: boolean): UseYoinkHashesResult {
   useEffect(() => {
     if (!isOpen) return;
     void fetchHashTypesWithRegex();
-    void fetchCrackedHashes();
-  }, [fetchCrackedHashes, fetchHashTypesWithRegex, isOpen]);
+    void fetchCrackedHashes(selectedHashType);
+  }, [fetchCrackedHashes, fetchHashTypesWithRegex, isOpen, selectedHashType]);
 
   const debouncedFetchHashes = useMemo(
     () =>
