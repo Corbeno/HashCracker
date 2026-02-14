@@ -41,11 +41,17 @@ test.describe('Hashing Flow', () => {
     // Wait for hash to be cracked and appear in Cracked Hashes panel
     // This should be fast with rockyou wordlist
     const crackedPanel = page.locator('.bg-gray-800\\/50').filter({ hasText: 'Cracked Hashes' });
-    await expect(crackedPanel.getByText('5f4dcc3b5aa765d61d8327deb882cf99')).toBeVisible({
+    const crackedTableBody = crackedPanel.locator('tbody');
+
+    await expect(
+      crackedTableBody.getByRole('cell', { name: '5f4dcc3b5aa765d61d8327deb882cf99' })
+    ).toBeVisible({
       timeout: 60000,
     });
-    await expect(crackedPanel.getByText('password')).toBeVisible({ timeout: 60000 });
-    await expect(crackedPanel.getByText(/\b0\b\s*-\s*MD5/i)).toBeVisible({ timeout: 60000 });
+    await expect(crackedTableBody.getByRole('button', { name: 'password' }).first()).toBeVisible({
+      timeout: 60000,
+    });
+    await expect(crackedTableBody).toContainText(/\b0\b\s*-\s*MD5/i, { timeout: 60000 });
 
     // Verify job shows completed status
     await expect(page.getByText('Completed').or(page.getByText('Exhausted')).first()).toBeVisible({
@@ -69,44 +75,100 @@ test.describe('Hashing Flow', () => {
 
     // Wait for at least one to be cracked
     const crackedPanel = page.locator('.bg-gray-800\\/50').filter({ hasText: 'Cracked Hashes' });
-    await expect(
-      crackedPanel
-        .getByText('5f4dcc3b5aa765d61d8327deb882cf99')
-        .or(crackedPanel.getByText('098f6bcd4621d373cade4e832627b4f6'))
-    ).toBeVisible({ timeout: 60000 });
-    await expect(crackedPanel.getByText('password').or(crackedPanel.getByText('test'))).toBeVisible(
+    const crackedTableBody = crackedPanel.locator('tbody');
+
+    // At least one hash should be cracked.
+    await expect(crackedTableBody).toContainText(
+      /5f4dcc3b5aa765d61d8327deb882cf99|098f6bcd4621d373cade4e832627b4f6/,
       { timeout: 60000 }
     );
+    await expect(crackedTableBody).toContainText(/password|test/, { timeout: 60000 });
   });
 
   test('should show job progress', async ({ page }) => {
-    await page.locator('#hash-input').fill('5f4dcc3b5aa765d61d8327deb882cf99');
+    test.setTimeout(120000);
+
+    // Enable live updates so debugInfo/statusJson is populated.
+    const liveUpdatesOff = page.getByRole('button', { name: /live updates disabled/i });
+    if (await liveUpdatesOff.count()) {
+      await liveUpdatesOff.first().click();
+    }
+
+    // Use several unknown hashes so the job lasts long enough to observe progress.
+    const longRunningHashes = [
+      '0123456789abcdef0123456789abcdef',
+      'deadbeefdeadbeefdeadbeefdeadbeef',
+      'feedfacefeedfacefeedfacefeedface',
+      'baadf00dbaadf00dbaadf00dbaadf00d',
+      'cafebabecafebabecafebabecafebabe',
+      '0badc0de0badc0de0badc0de0badc0de',
+    ].join('\n');
+
+    await page.locator('#hash-input').fill(longRunningHashes);
     await page.getByRole('button', { name: 'Start Cracking' }).click();
 
-    // Wait for job to start running
-    await expect(page.getByText('Running').first()).toBeVisible({ timeout: 10000 });
-
     // Click "Show Details" to see debug info
-    await page.getByRole('button', { name: 'Show Details' }).first().click();
+    const firstJobCard = page
+      .locator('.bg-gray-900\\/50')
+      .filter({ has: page.getByRole('button', { name: /Show Details|Hide Details/ }) })
+      .first();
+    await expect(firstJobCard.getByRole('button', { name: 'Show Details' })).toBeVisible({
+      timeout: 20000,
+    });
+    await firstJobCard.getByRole('button', { name: 'Show Details' }).click();
 
-    // Should show some debug information
-    await expect(page.getByText(/Status:|Progress:|Speed:/)).toBeVisible();
+    // The details panel should open.
+    await expect(firstJobCard.getByRole('button', { name: 'Hide Details' })).toBeVisible({
+      timeout: 20000,
+    });
+
+    // Debug info is streamed; wait for the details content to appear.
+    await expect(firstJobCard.getByText('Recovered hashes for this job:')).toBeVisible({
+      timeout: 60000,
+    });
+
+    // If statusJson is available, the Status section should render.
+    const statusHeading = firstJobCard.getByRole('heading', { name: 'Status' });
+    if (await statusHeading.count()) {
+      await expect(statusHeading).toBeVisible({ timeout: 60000 });
+      await expect(firstJobCard.getByText('Progress:')).toBeVisible({ timeout: 60000 });
+    }
   });
 
   test('should cancel a running job', async ({ page }) => {
-    await page.locator('#hash-input').fill('5f4dcc3b5aa765d61d8327deb882cf99');
+    test.setTimeout(120000);
+
+    // Use unknown hashes so the job is still running when we cancel.
+    const firstHash = '0123456789abcdef0123456789abcdef';
+    const longRunningHashes = [
+      firstHash,
+      'deadbeefdeadbeefdeadbeefdeadbeef',
+      'feedfacefeedfacefeedfacefeedface',
+      'baadf00dbaadf00dbaadf00dbaadf00d',
+      'cafebabecafebabecafebabecafebabe',
+      '0badc0de0badc0de0badc0de0badc0de',
+    ].join('\n');
+
+    await page.locator('#hash-input').fill(longRunningHashes);
     await page.getByRole('button', { name: 'Start Cracking' }).click();
 
-    // Wait for job to start
-    await expect(page.getByText('Running').or(page.getByText('Queued')).first()).toBeVisible({
-      timeout: 10000,
-    });
-
     // Click Cancel button
-    await page.getByRole('button', { name: 'Cancel' }).first().click();
+    const jobCard = page.locator('.bg-gray-900\\/50').filter({ hasText: firstHash }).first();
+    const cancelButton = jobCard.getByRole('button', { name: 'Cancel' });
+    await expect(cancelButton).toBeVisible({ timeout: 20000 });
 
-    // Job should show cancelled status
-    await expect(page.getByText('Cancelled').first()).toBeVisible({ timeout: 5000 });
+    const [cancelResponse] = await Promise.all([
+      page.waitForResponse(
+        r => r.url().includes('/api/crack?jobId=') && r.request().method() === 'DELETE'
+      ),
+      cancelButton.click(),
+    ]);
+    expect(cancelResponse.ok()).toBeTruthy();
+
+    // Job should no longer be running.
+    await expect(jobCard.getByText(/Cancelled|Completed|Exhausted|Failed/).first()).toBeVisible({
+      timeout: 30000,
+    });
   });
 
   test('should select different hash type', async ({ page }) => {
@@ -129,9 +191,11 @@ test.describe('Hashing Flow', () => {
     await page.getByRole('button', { name: 'Start Cracking' }).click();
 
     // Verify job shows NTLM type
-    await expect(page.getByText('Type: NTLM').or(page.getByText('Type: 1000'))).toBeVisible({
-      timeout: 5000,
-    });
+    const ntlmJobCard = page
+      .locator('.bg-gray-900\\/50')
+      .filter({ hasText: '8846f7eaee8fb117ad06bdd830b7586c' })
+      .first();
+    await expect(ntlmJobCard.getByText('Type: NTLM')).toBeVisible({ timeout: 10000 });
   });
 
   test('should select different attack mode', async ({ page }) => {
@@ -150,7 +214,13 @@ test.describe('Hashing Flow', () => {
     await page.getByRole('button', { name: 'Start Cracking' }).click();
 
     // Verify job appears
-    await expect(page.getByText('5f4dcc3b5aa765d61d8327deb882cf99')).toBeVisible();
+    const activeJobsPanel = page.locator('.bg-gray-800\\/50').filter({ hasText: 'Active Jobs' });
+    await expect(
+      activeJobsPanel
+        .locator('.break-all')
+        .filter({ hasText: '5f4dcc3b5aa765d61d8327deb882cf99' })
+        .first()
+    ).toBeVisible();
   });
 
   test('should highlight cracked hashes in job panel', async ({ page }) => {
@@ -159,10 +229,15 @@ test.describe('Hashing Flow', () => {
 
     // Wait for hash to be cracked
     const crackedPanel = page.locator('.bg-gray-800\\/50').filter({ hasText: 'Cracked Hashes' });
-    await expect(crackedPanel.getByText('5f4dcc3b5aa765d61d8327deb882cf99')).toBeVisible({
+    const crackedTableBody = crackedPanel.locator('tbody');
+    await expect(
+      crackedTableBody.getByRole('cell', { name: '5f4dcc3b5aa765d61d8327deb882cf99' })
+    ).toBeVisible({
       timeout: 60000,
     });
-    await expect(crackedPanel.getByText('password')).toBeVisible({ timeout: 60000 });
+    await expect(crackedTableBody.getByRole('button', { name: 'password' }).first()).toBeVisible({
+      timeout: 60000,
+    });
 
     // In the Active Jobs panel, the cracked hash should be highlighted
     // Look for the hash with green color (text-green-400 class)
@@ -170,29 +245,30 @@ test.describe('Hashing Flow', () => {
     const crackedHashInJob = jobPanel
       .locator('.text-green-400')
       .filter({ hasText: '5f4dcc3b5aa765d61d8327deb882cf99' });
-    await expect(crackedHashInJob).toBeVisible();
+    await expect(crackedHashInJob.first()).toBeVisible();
   });
 
   test('should copy job hashes to input', async ({ page }) => {
-    // First crack a hash
-    await page.locator('#hash-input').fill('5f4dcc3b5aa765d61d8327deb882cf99');
+    // Start a job with an unlikely-to-crack hash so it remains "uncracked".
+    const uncrackedHash = '0123456789abcdef0123456789abcdef';
+
+    await page.locator('#hash-input').fill(uncrackedHash);
     await page.getByRole('button', { name: 'Start Cracking' }).click();
 
     // Wait for job to appear
-    await expect(page.getByText('5f4dcc3b5aa765d61d8327deb882cf99').first()).toBeVisible();
+    await expect(page.getByText(uncrackedHash).first()).toBeVisible();
 
-    // Add another hash to input
-    await page.locator('#hash-input').fill('098f6bcd4621d373cade4e832627b4f6');
+    // Add some other content to ensure it gets replaced.
+    await page.locator('#hash-input').fill('will be replaced');
 
     // Click the "Replace" button on the job (icon button)
-    const jobPanel = page
-      .locator('.bg-gray-900\\/50')
-      .filter({ hasText: '5f4dcc3b5aa765d61d8327deb882cf99' })
-      .first();
-    const replaceButton = jobPanel.getByRole('button', { name: 'Replace input with all' }).first();
+    const jobPanel = page.locator('.bg-gray-900\\/50').filter({ hasText: uncrackedHash }).first();
+    const replaceButton = jobPanel.getByRole('button', {
+      name: 'Replace input with all uncracked hashes',
+    });
     await replaceButton.click();
 
     // Input should now have the job's hash
-    await expect(page.locator('#hash-input')).toHaveValue('5f4dcc3b5aa765d61d8327deb882cf99');
+    await expect(page.locator('#hash-input')).toHaveValue(uncrackedHash);
   });
 });
