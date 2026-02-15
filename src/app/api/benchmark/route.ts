@@ -4,17 +4,10 @@ import path from 'path';
 import { NextResponse } from 'next/server';
 
 import config from '@/config';
+import { parseHashcatMachineReadableBenchmark } from '@/utils/hashcatBenchmark';
 import { logger } from '@/utils/logger';
 
 export const dynamic = 'force-dynamic';
-
-interface BenchmarkResult {
-  hashType: number;
-  hashName: string;
-  speed: string;
-  speedPerHash: number; // Raw speed value (hashes per second)
-  unit: string; // Unit (H/s, kH/s, MH/s, GH/s)
-}
 
 export async function GET(request: Request) {
   try {
@@ -81,67 +74,8 @@ export async function GET(request: Request) {
         }
 
         try {
-          // Parse the benchmark results
-          const results: BenchmarkResult[] = [];
-
           logger.debug(`Benchmark stdout: ${stdout}`);
-          const lines = stdout.split('\n').filter(line => line.trim() !== '');
-
-          for (const line of lines) {
-            // Ignore lines that start with # or * (comments and warnings)
-            if (
-              line.startsWith('#') ||
-              line.startsWith('*') ||
-              line.startsWith('Started:') ||
-              line.startsWith('Stopped:')
-            ) {
-              continue;
-            }
-
-            // Format example: 1:0:2775:10251:63.84:64847836114
-            // hashType:deviceID:attackMode:loops:time:speed
-            const parts = line.split(':');
-
-            if (parts.length >= 6) {
-              const hashTypeId = parseInt(parts[0], 10);
-              const rawSpeed = parseFloat(parts[5]);
-
-              // Get hash type name from config
-              const hashTypeName =
-                config.hashcat.hashTypes[hashTypeId]?.name || `Hash type ${hashTypeId}`;
-
-              // Format the speed with appropriate unit
-              let formattedSpeed: string;
-              let speedPerHash: number;
-              let unit: string;
-
-              if (rawSpeed >= 1_000_000_000) {
-                formattedSpeed = `${(rawSpeed / 1_000_000_000).toFixed(2)} GH/s`;
-                unit = 'GH/s';
-                speedPerHash = rawSpeed;
-              } else if (rawSpeed >= 1_000_000) {
-                formattedSpeed = `${(rawSpeed / 1_000_000).toFixed(2)} MH/s`;
-                unit = 'MH/s';
-                speedPerHash = rawSpeed;
-              } else if (rawSpeed >= 1_000) {
-                formattedSpeed = `${(rawSpeed / 1_000).toFixed(2)} kH/s`;
-                unit = 'kH/s';
-                speedPerHash = rawSpeed;
-              } else {
-                formattedSpeed = `${rawSpeed.toFixed(2)} H/s`;
-                unit = 'H/s';
-                speedPerHash = rawSpeed;
-              }
-
-              results.push({
-                hashType: hashTypeId,
-                hashName: hashTypeName,
-                speed: formattedSpeed,
-                speedPerHash,
-                unit,
-              });
-            }
-          }
+          const results = parseHashcatMachineReadableBenchmark(stdout);
 
           // Log the results for debugging
           logger.debug(`Parsed benchmark results: ${JSON.stringify(results)}`);

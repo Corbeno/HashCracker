@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+import { randomHex } from './utils/random';
+
 import { gotoCracker } from './utils/navigation';
 import {
   cancelJob,
@@ -84,16 +86,16 @@ test.describe('Hashing Flow', () => {
     await expect(page.getByTestId('hash-input')).toBeVisible();
 
     // Use several unknown hashes so the job lasts long enough to observe progress.
+    const firstHash = randomHex();
     const longRunningHashes = [
-      '0123456789abcdef0123456789abcdef',
-      'deadbeefdeadbeefdeadbeefdeadbeef',
-      'feedfacefeedfacefeedfacefeedface',
-      'baadf00dbaadf00dbaadf00dbaadf00d',
-      'cafebabecafebabecafebabecafebabe',
-      '0badc0de0badc0de0badc0de0badc0de',
+      firstHash,
+      randomHex(),
+      randomHex(),
+      randomHex(),
+      randomHex(),
+      randomHex(),
     ].join('\n');
 
-    const firstHash = '0123456789abcdef0123456789abcdef';
     await startCracking(page, longRunningHashes);
 
     const jobCard = await waitForJobVisible(page, firstHash);
@@ -108,24 +110,22 @@ test.describe('Hashing Flow', () => {
     test.setTimeout(120000);
 
     // Use unknown hashes so the job is still running when we cancel.
-    const firstHash = '0123456789abcdef0123456789abcdef';
+    const firstHash = randomHex();
     const longRunningHashes = [
       firstHash,
-      'deadbeefdeadbeefdeadbeefdeadbeef',
-      'feedfacefeedfacefeedfacefeedface',
-      'baadf00dbaadf00dbaadf00dbaadf00d',
-      'cafebabecafebabecafebabecafebabe',
-      '0badc0de0badc0de0badc0de0badc0de',
+      randomHex(),
+      randomHex(),
+      randomHex(),
+      randomHex(),
+      randomHex(),
     ].join('\n');
 
     await startCracking(page, longRunningHashes);
     const jobCard = await waitForJobVisible(page, firstHash);
     await cancelJob(page, jobCard);
 
-    await expect(jobCard.getByTestId('job-status')).toContainText(
-      /Cancelled|Completed|Exhausted|Failed/,
-      { timeout: 30000 }
-    );
+    // A cancelled job should remain visible and show cancelled status.
+    await expect(jobCard.getByTestId('job-status')).toContainText('Cancelled', { timeout: 30000 });
   });
 
   test('should select different hash type', async ({ page }) => {

@@ -113,7 +113,8 @@ export class JobQueue {
       job.status = 'cancelled';
       job.endTime = new Date().toISOString();
 
-      // Don't add to history - just delete completely
+      // Keep cancelled jobs visible to the UI by adding them to history.
+      this.addToHistory(job);
 
       // Notify all clients of the job change
       sendJobsToAll();
