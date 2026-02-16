@@ -4,6 +4,7 @@ import { promisify } from 'util';
 import si from 'systeminformation';
 
 import { logger } from './logger';
+import { EMPTY_SYSTEM_INFO, SystemInfo } from '@/types/systemInfo';
 
 // NOTE: Most of this file is hardcoded to my system. This needs a better way, but works for now
 
@@ -40,17 +41,6 @@ async function getNvidiaSmiGpuUsage(): Promise<number | null> {
   } catch {
     return null;
   }
-}
-
-// Define the system information interface
-export interface SystemInfo {
-  cpuName: string;
-  cpuUsage: number;
-  gpuName: string;
-  gpuUsage: number;
-  ramTotal: number;
-  ramUsed: number;
-  ramUsage: number;
 }
 
 // Create a namespace for our global variables
@@ -164,16 +154,6 @@ export function initSystemInfoCache(updateInterval: number): void {
   global.__systemInfoCache__.updateIntervalId = setInterval(updateCachedSystemInfo, updateInterval);
 }
 
-const emptySystemInfo = {
-  cpuName: 'Unknown CPU',
-  cpuUsage: 0,
-  gpuName: 'Unknown GPU',
-  gpuUsage: 0,
-  ramTotal: 0,
-  ramUsed: 0,
-  ramUsage: 0,
-};
-
 /**
  * Gets the current cached system information
  * If the cache is not initialized, it will return empty data
@@ -204,7 +184,7 @@ export async function getSystemInfo(): Promise<SystemInfo> {
   }
 
   // Return empty data if all else fails
-  return emptySystemInfo;
+  return EMPTY_SYSTEM_INFO;
 }
 
 /**

@@ -54,7 +54,7 @@ function GitHubIcon({ width = 24, height = 24 }) {
 
 interface AppHeaderProps {
   connectedStatus: 'connected' | 'disconnected';
-  liveViewingEnabled: boolean | null;
+  liveViewingEnabled: boolean;
   toggleLiveViewing: () => void;
 }
 
@@ -97,23 +97,21 @@ export default function AppHeader({
             <span className="text-sm text-gray-400">{connectedStatus}</span>
 
             {/* Live Viewing Toggle - Icon based */}
-            {liveViewingEnabled !== null && (
-              <button
-                onClick={toggleLiveViewing}
-                className={`ml-3 p-1.5 rounded-md transition-colors ${
-                  liveViewingEnabled
-                    ? 'bg-blue-500 hover:bg-blue-600'
-                    : 'bg-gray-800 hover:bg-gray-700'
-                }`}
-                title={
-                  liveViewingEnabled
-                    ? 'Live updates enabled for the entire app'
-                    : 'Live updates disabled for the entire app'
-                }
-              >
-                {liveViewingEnabled ? <EyeOpenIcon /> : <EyeClosedIcon />}
-              </button>
-            )}
+            <button
+              onClick={toggleLiveViewing}
+              className={`ml-3 p-1.5 rounded-md transition-colors ${
+                liveViewingEnabled
+                  ? 'bg-blue-500 hover:bg-blue-600'
+                  : 'bg-gray-800 hover:bg-gray-700'
+              }`}
+              title={
+                liveViewingEnabled
+                  ? 'Live updates enabled for the entire app'
+                  : 'Live updates disabled for the entire app'
+              }
+            >
+              {liveViewingEnabled ? <EyeOpenIcon /> : <EyeClosedIcon />}
+            </button>
           </div>
         </div>
       </div>
@@ -161,20 +159,18 @@ export default function AppHeader({
                 </a>
               </div>
 
-              {liveViewingEnabled !== null && (
-                <div className="flex items-center">
-                  <button onClick={toggleLiveViewing} className="flex items-center gap-2">
-                    <div
-                      className={`p-1.5 rounded-md transition-colors ${
-                        liveViewingEnabled ? 'bg-blue-500' : 'bg-gray-800'
-                      }`}
-                    >
-                      {liveViewingEnabled ? <EyeOpenIcon /> : <EyeClosedIcon />}
-                    </div>
-                    <span>{liveViewingEnabled ? 'Live Updates: On' : 'Live Updates: Off'}</span>
-                  </button>
-                </div>
-              )}
+              <div className="flex items-center">
+                <button onClick={toggleLiveViewing} className="flex items-center gap-2">
+                  <div
+                    className={`p-1.5 rounded-md transition-colors ${
+                      liveViewingEnabled ? 'bg-blue-500' : 'bg-gray-800'
+                    }`}
+                  >
+                    {liveViewingEnabled ? <EyeOpenIcon /> : <EyeClosedIcon />}
+                  </div>
+                  <span>{liveViewingEnabled ? 'Live Updates: On' : 'Live Updates: Off'}</span>
+                </button>
+              </div>
             </div>
           </div>
         )}

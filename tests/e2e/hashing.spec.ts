@@ -78,13 +78,6 @@ test.describe('Hashing Flow', () => {
   test('should show job progress', async ({ page }) => {
     test.setTimeout(120000);
 
-    // Ensure live updates are enabled for this test.
-    await page.evaluate(() => {
-      localStorage.setItem('enableLiveViewing', 'true');
-    });
-    await page.reload();
-    await expect(page.getByTestId('hash-input')).toBeVisible();
-
     // Use several unknown hashes so the job lasts long enough to observe progress.
     const firstHash = randomHex();
     const longRunningHashes = [

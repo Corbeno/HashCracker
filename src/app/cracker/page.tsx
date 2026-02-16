@@ -10,7 +10,7 @@ import PotfileModal from '@/app/cracker/_components/PotfileModal';
 import YoinkHashesModal from '@/app/cracker/_components/yoink/YoinkHashesModal';
 import AppHeader from '@/components/app-shell/AppHeader';
 import TabBar from '@/components/app-shell/TabBar';
-import useConnection from '@/hooks/useConnection';
+import { useConnection } from '@/contexts/ConnectionContext';
 import useHashManagement from '@/hooks/useHashManagement';
 import { Job } from '@/types/job';
 

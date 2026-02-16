@@ -3,7 +3,7 @@
 import CredentialVaultPanel from '@/app/vault/_components/credential-vault/CredentialVaultPanel';
 import AppHeader from '@/components/app-shell/AppHeader';
 import TabBar from '@/components/app-shell/TabBar';
-import useConnection from '@/hooks/useConnection';
+import { useConnection } from '@/contexts/ConnectionContext';
 
 const APP_TABS = [
   { label: 'Hash Cracker', href: '/cracker' },
