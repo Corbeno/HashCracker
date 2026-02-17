@@ -96,6 +96,7 @@ export function mergeImportedCredentials(
       updatedCount,
       skippedCount,
       conflictCount,
+      sharedCount: 0,
     },
   };
 }

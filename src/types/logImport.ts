@@ -14,6 +14,7 @@ export interface LogImportResult {
   updatedCount: number;
   skippedCount: number;
   conflictCount: number;
+  sharedCount: number;
 }
 
 export interface LogImportResponse {

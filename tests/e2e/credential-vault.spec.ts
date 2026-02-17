@@ -165,4 +165,63 @@ test.describe('Credential Vault', () => {
       '8846f7eaee8fb117ad06bdd830b7586c'
     );
   });
+
+  test('routes shared-username imports to Shared unless hash conflicts', async ({ page }) => {
+    const sourceTabName = `E2E-Import-${Date.now()}`;
+    const sharedUsername = `shareduser${Date.now()}`;
+    const sharedHash = '8846f7eaee8fb117ad06bdd830b7586c';
+    const conflictingHash = '5f4dcc3b5aa765d61d8327deb882cf99';
+
+    await createVaultTab(page, sourceTabName);
+
+    await page.getByRole('button', { name: 'Shared', exact: true }).click();
+    await page.getByRole('button', { name: 'Log Import' }).click();
+    await expect(page.getByRole('heading', { name: 'Log Import' })).toBeVisible();
+    await page
+      .locator('#log-import-raw')
+      .fill(`${sharedUsername}:500:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:${sharedHash}:::`);
+    await page.getByRole('button', { name: 'Import', exact: true }).click();
+    await expect(page.getByText(/Parsed: 1/)).toBeVisible();
+    await page.getByRole('button', { name: 'Close' }).click();
+
+    await page.getByRole('button', { name: sourceTabName, exact: true }).click();
+    await page.getByRole('button', { name: 'Log Import' }).click();
+    await expect(page.getByRole('heading', { name: 'Log Import' })).toBeVisible();
+
+    const rawLog = [
+      `${sharedUsername}:500:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:${sharedHash}:::`,
+      `${sharedUsername}:500:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:${conflictingHash}:::`,
+    ].join('\n');
+
+    await page.locator('#log-import-raw').fill(rawLog);
+    const importResponsePromise = page.waitForResponse(
+      response =>
+        response.url().includes('/api/log-import') && response.request().method() === 'POST',
+      { timeout: 15000 }
+    );
+    await page.getByRole('button', { name: 'Import', exact: true }).click();
+    const importResponse = await importResponsePromise;
+    const importPayload = (await importResponse.json()) as {
+      result?: {
+        parsedCount?: number;
+        sharedCount?: number;
+      };
+    };
+
+    expect(importPayload.result?.parsedCount).toBe(2);
+    expect(importPayload.result?.sharedCount).toBe(1);
+
+    await expect(page.getByText(/Parsed: 2/)).toBeVisible();
+    await expect(page.getByText(/Shared:/)).toBeVisible();
+
+    await page.getByRole('button', { name: 'Close' }).click();
+
+    await expect(page.locator('.ag-center-cols-container')).toContainText(sharedUsername);
+    await expect(page.locator('.ag-center-cols-container')).toContainText(conflictingHash);
+
+    await page.getByRole('button', { name: 'Shared', exact: true }).click();
+    await expect(page.locator('.ag-center-cols-container')).toContainText(sharedUsername);
+    await expect(page.locator('.ag-center-cols-container')).toContainText(sharedHash);
+    await expect(page.locator('.ag-center-cols-container')).not.toContainText(conflictingHash);
+  });
 });

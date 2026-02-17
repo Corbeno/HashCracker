@@ -141,8 +141,8 @@ export default function LogImportModal({ isOpen, onClose, onImport }: LogImportM
           {result && (
             <div className="bg-gray-900/50 border border-gray-700 rounded-md p-3 text-sm text-gray-200">
               Parsed: {result.parsedCount} | Created: {result.createdCount} | Updated:{' '}
-              {result.updatedCount} | Skipped: {result.skippedCount} | Conflicts:{' '}
-              {result.conflictCount}
+              {result.updatedCount} | Shared: {result.sharedCount} | Skipped: {result.skippedCount}{' '}
+              | Conflicts: {result.conflictCount}
             </div>
           )}
         </div>

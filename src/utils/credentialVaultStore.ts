@@ -41,7 +41,7 @@ import {
 } from '@/types/credentialVault';
 import type { HashResult } from '@/types/hashResults';
 import { LogImportResult, LogImportType } from '@/types/logImport';
-import { mergeImportedCredentials } from '@/utils/logImport/merge';
+import { mergeImportedCredentials, normalizeUsername } from '@/utils/logImport/merge';
 import { parseImpacketNtlmLog } from '@/utils/logImport/parsers/impacketNtlm';
 
 function buildBlankCredential(id?: string): Credential {
@@ -136,6 +136,45 @@ function emptyImportResult(): LogImportResult {
     updatedCount: 0,
     skippedCount: 0,
     conflictCount: 0,
+    sharedCount: 0,
+  };
+}
+
+function findSharedTabId(vault: CredentialVaultDocument): string | null {
+  const sharedTab = vault.tabs.find(tab => tab.name.trim().toLowerCase() === 'shared');
+  return sharedTab?.id ?? null;
+}
+
+function upsertTabCredentials(tabId: string, credentials: Credential[]): void {
+  deleteCredentialsForTab(tabId);
+  for (let position = 0; position < credentials.length; position += 1) {
+    const credential = credentials[position];
+    insertCredential({
+      id: credential.id,
+      tabId,
+      username: credential.username,
+      password: credential.password,
+      hash: credential.hash,
+      hashType: normalizeHashTypeValue(credential.hashType),
+      device: credential.device,
+      position,
+    });
+  }
+}
+
+function combineImportResults(
+  parsedCount: number,
+  primary: LogImportResult,
+  shared: LogImportResult,
+  sharedRoutedCount: number
+): LogImportResult {
+  return {
+    parsedCount,
+    createdCount: primary.createdCount + shared.createdCount,
+    updatedCount: primary.updatedCount + shared.updatedCount,
+    skippedCount: primary.skippedCount + shared.skippedCount,
+    conflictCount: primary.conflictCount + shared.conflictCount,
+    sharedCount: sharedRoutedCount,
   };
 }
 
@@ -277,30 +316,88 @@ export function applyCredentialVaultLogImport(
   }
 
   const currentCredentials = getCredentialsForTab(tabId).map(mapVaultCredentialRowToCredential);
-  const merged = mergeImportedCredentials(currentCredentials, parsedRecords);
+  const currentVault = loadVaultFromDatabase();
+  const sharedTabId = findSharedTabId(currentVault);
 
-  if (isEqual(merged.nextCredentials, currentCredentials)) {
-    return { vault: loadVaultFromDatabase(), result: merged.result };
-  }
-
-  withVaultTransaction(() => {
-    deleteCredentialsForTab(tabId);
-    for (let position = 0; position < merged.nextCredentials.length; position += 1) {
-      const credential = merged.nextCredentials[position];
-      insertCredential({
-        id: credential.id,
-        tabId,
-        username: credential.username,
-        password: credential.password,
-        hash: credential.hash,
-        hashType: normalizeHashTypeValue(credential.hashType),
-        device: credential.device,
-        position,
+  if (!sharedTabId || sharedTabId === tabId) {
+    const merged = mergeImportedCredentials(currentCredentials, parsedRecords);
+    if (!isEqual(merged.nextCredentials, currentCredentials)) {
+      withVaultTransaction(() => {
+        upsertTabCredentials(tabId, merged.nextCredentials);
       });
     }
-  });
 
-  return { vault: loadVaultFromDatabase(), result: merged.result };
+    return {
+      vault: loadVaultFromDatabase(),
+      result: {
+        ...merged.result,
+        sharedCount: 0,
+      },
+    };
+  }
+
+  const sharedCredentials = getCredentialsForTab(sharedTabId).map(
+    mapVaultCredentialRowToCredential
+  );
+  const sharedByUsername = new Map<string, Credential>();
+  for (const credential of sharedCredentials) {
+    const normalized = normalizeUsername(credential.username);
+    if (!normalized || sharedByUsername.has(normalized)) continue;
+    sharedByUsername.set(normalized, credential);
+  }
+
+  const sharedRecords: typeof parsedRecords = [];
+  const primaryRecords: typeof parsedRecords = [];
+
+  for (const record of parsedRecords) {
+    const normalizedUsername = normalizeUsername(record.username);
+    const sharedCredential = normalizedUsername
+      ? sharedByUsername.get(normalizedUsername)
+      : undefined;
+
+    if (!sharedCredential) {
+      primaryRecords.push(record);
+      continue;
+    }
+
+    const sharedHash = sharedCredential.hash.trim();
+    const hashesMatch = sharedHash.toLowerCase() === record.hash.toLowerCase();
+
+    // If the hashes don't match, don't put the cred on the shared tab, even though it has a shared username
+    if (sharedHash.length > 0 && !hashesMatch) {
+      primaryRecords.push(record);
+      continue;
+    }
+
+    sharedRecords.push(record);
+  }
+
+  const mergedPrimary = mergeImportedCredentials(currentCredentials, primaryRecords);
+  const mergedShared = mergeImportedCredentials(sharedCredentials, sharedRecords);
+
+  const primaryChanged = !isEqual(mergedPrimary.nextCredentials, currentCredentials);
+  const sharedChanged = !isEqual(mergedShared.nextCredentials, sharedCredentials);
+
+  if (primaryChanged || sharedChanged) {
+    withVaultTransaction(() => {
+      if (primaryChanged) {
+        upsertTabCredentials(tabId, mergedPrimary.nextCredentials);
+      }
+      if (sharedChanged) {
+        upsertTabCredentials(sharedTabId, mergedShared.nextCredentials);
+      }
+    });
+  }
+
+  return {
+    vault: loadVaultFromDatabase(),
+    result: combineImportResults(
+      parsedRecords.length,
+      mergedPrimary.result,
+      mergedShared.result,
+      sharedRecords.length
+    ),
+  };
 }
 
 export function applyCrackedPasswordsToCredentialVault(
