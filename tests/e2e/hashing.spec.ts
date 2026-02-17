@@ -167,6 +167,23 @@ test.describe('Hashing Flow', () => {
     ).toBeVisible();
   });
 
+  test('should show newest cracked hash at the top', async ({ page }) => {
+    const firstHash = '5f4dcc3b5aa765d61d8327deb882cf99'; // password
+    const secondHash = '098f6bcd4621d373cade4e832627b4f6'; // test
+
+    await startCracking(page, firstHash);
+    await expect(crackedHashesTbody(page).getByRole('cell', { name: firstHash })).toBeVisible({
+      timeout: 60000,
+    });
+
+    await startCracking(page, secondHash);
+    await expect(crackedHashesTbody(page).getByRole('cell', { name: secondHash })).toBeVisible({
+      timeout: 60000,
+    });
+
+    await expect(crackedHashesTbody(page).locator('tr').first()).toContainText(secondHash);
+  });
+
   test('should copy job hashes to input', async ({ page }) => {
     // Start a job with an unlikely-to-crack hash so it remains "uncracked".
     const uncrackedHash = '0123456789abcdef0123456789abcdef';

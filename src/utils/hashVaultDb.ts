@@ -13,6 +13,7 @@ export interface HashVaultRow {
   hash_type: number;
   hash: string;
   cracked_hash: string;
+  added_date: string;
 }
 
 function ensureHashVaultDbParentExists(): void {
@@ -37,6 +38,7 @@ function getDatabase(): Database.Database {
         hash_type INTEGER NOT NULL,
         hash TEXT NOT NULL,
         cracked_hash TEXT NOT NULL,
+        added_date TEXT NOT NULL,
         PRIMARY KEY (hash_type, hash)
       );
     `);
@@ -64,10 +66,12 @@ export function upsertHashVaultRow(row: HashVaultRow): void {
       getDatabase()
         .prepare<HashVaultRow>(
           `
-            INSERT INTO hash_vault (hash_type, hash, cracked_hash)
-            VALUES (@hash_type, @hash, @cracked_hash)
+            INSERT INTO hash_vault (hash_type, hash, cracked_hash, added_date)
+            VALUES (@hash_type, @hash, @cracked_hash, @added_date)
             ON CONFLICT(hash_type, hash)
-            DO UPDATE SET cracked_hash = excluded.cracked_hash
+            DO UPDATE SET
+              cracked_hash = excluded.cracked_hash,
+              added_date = excluded.added_date
           `
         )
         .run(row),
@@ -78,10 +82,13 @@ export function upsertHashVaultRow(row: HashVaultRow): void {
 export function getAllHashVaultRows(): HashVaultRow[] {
   return withHashVaultSql('hashVault.getAll', () =>
     getDatabase()
-      .prepare<
-        [],
-        HashVaultRow
-      >('SELECT hash_type, hash, cracked_hash FROM hash_vault ORDER BY hash_type ASC, hash ASC')
+      .prepare<[], HashVaultRow>(
+        `
+          SELECT hash_type, hash, cracked_hash, added_date
+          FROM hash_vault
+          ORDER BY added_date DESC, hash_type ASC, hash ASC
+        `
+      )
       .all()
   );
 }
@@ -91,10 +98,14 @@ export function getHashVaultRowsByType(hashType: number): HashVaultRow[] {
     'hashVault.getByType',
     () =>
       getDatabase()
-        .prepare<
-          { hashType: number },
-          HashVaultRow
-        >('SELECT hash_type, hash, cracked_hash FROM hash_vault WHERE hash_type = @hashType ORDER BY hash ASC')
+        .prepare<{ hashType: number }, HashVaultRow>(
+          `
+            SELECT hash_type, hash, cracked_hash, added_date
+            FROM hash_vault
+            WHERE hash_type = @hashType
+            ORDER BY added_date DESC, hash ASC
+          `
+        )
         .all({ hashType }),
     { hashType }
   );

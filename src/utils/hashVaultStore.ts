@@ -14,6 +14,7 @@ export function readHashVault(): HashVaultEntry[] {
     hashType: row.hash_type,
     hash: row.hash,
     password: row.cracked_hash,
+    addedDate: row.added_date,
   }));
 }
 
@@ -22,6 +23,7 @@ export function readHashVaultByType(hashType: number): HashVaultEntry[] {
     hashType: row.hash_type,
     hash: row.hash,
     password: row.cracked_hash,
+    addedDate: row.added_date,
   }));
 }
 
@@ -37,6 +39,7 @@ export function upsertCrackedHashes(hashType: number, crackedResults: HashResult
         hash_type: hashType,
         hash: normalizedHash,
         cracked_hash: result.password,
+        added_date: new Date().toISOString(),
       });
     }
   });
