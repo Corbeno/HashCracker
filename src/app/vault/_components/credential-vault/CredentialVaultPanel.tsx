@@ -41,7 +41,7 @@ import {
 } from 'react';
 
 import CrackSelectedModal from './CrackSelectedModal';
-import { persistGridState as persistGridStateSnapshot, loadGridState } from './grid/gridState';
+import { loadGridState, persistGridState as persistGridStateSnapshot } from './grid/gridState';
 import {
   HashTypeDropdownCellEditor,
   HashTypeOption,
@@ -50,6 +50,7 @@ import {
 import { buildCredentialSelectionState } from './grid/selection';
 import LogImportModal from './LogImportModal';
 
+import CopyIcon from '@/components/ui/icons/CopyIcon';
 import { DropdownOption } from '@/components/ui/searchable-dropdown';
 import config from '@/config';
 import useCredentialVault from '@/hooks/useCredentialVault';
@@ -68,6 +69,24 @@ function hasAnyCredentialData(credential: Record<string, unknown>): boolean {
     credential.hashType,
     credential.device,
   ].some(value => String(value ?? '').trim() !== '');
+}
+
+function buildSelectedCredentialClipboardText(credentials: Credential[]): string {
+  if (credentials.length === 0) return '';
+
+  return credentials
+    .map(credential => {
+      const username = credential.username?.trim() || '(empty)';
+      const password = credential.password?.trim() || '(empty)';
+      const hash = credential.hash?.trim() || '(empty)';
+
+      return [username, password, hash].join('\t\t');
+    })
+    .join('\n');
+}
+
+async function copyTextToClipboard(text: string): Promise<void> {
+  await navigator.clipboard.writeText(text);
 }
 
 export default function CredentialVaultPanel() {
@@ -99,6 +118,7 @@ export default function CredentialVaultPanel() {
   const [isQueueingCrackJobs, setIsQueueingCrackJobs] = useState(false);
   const [queueCrackJobsError, setQueueCrackJobsError] = useState<string | null>(null);
   const [queueCrackJobsStatus, setQueueCrackJobsStatus] = useState<string | null>(null);
+  const [copySelectedStatus, setCopySelectedStatus] = useState<string | null>(null);
   const gridApiRef = useRef<GridApi<Credential> | null>(null);
   const pendingNewRowId = useRef<string | null>(null);
   const pendingAutoAppendFromRowId = useRef<string | null>(null);
@@ -525,6 +545,41 @@ export default function CredentialVaultPanel() {
     setSelectedIds(new Set());
   }, [activeTab, selectedIds, deleteCredentials]);
 
+  const handleCopySelected = useCallback(async () => {
+    if (!activeTab || selectedIds.size === 0) return;
+
+    const credentialById = new Map(
+      activeTab.credentials.map(credential => [credential.id, credential])
+    );
+    const selectedCredentials = Array.from(selectedIds)
+      .map(credentialId => credentialById.get(credentialId))
+      .filter((credential): credential is Credential => credential !== undefined);
+    const clipboardText = buildSelectedCredentialClipboardText(selectedCredentials);
+
+    if (!clipboardText) return;
+
+    try {
+      await copyTextToClipboard(clipboardText);
+      setCopySelectedStatus(
+        `Copied ${selectedCredentials.length} credential${selectedCredentials.length === 1 ? '' : 's'} to clipboard.`
+      );
+    } catch {
+      setCopySelectedStatus('Failed to copy selected credentials.');
+    }
+  }, [activeTab, selectedIds]);
+
+  useEffect(() => {
+    if (!copySelectedStatus) return;
+
+    const timeout = window.setTimeout(() => {
+      setCopySelectedStatus(null);
+    }, 2500);
+
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [copySelectedStatus]);
+
   const { crackJobDrafts, canSendSelectedToCracker, sendDisabledReason } = useMemo(() => {
     if (!activeTab) {
       return buildCredentialSelectionState([], selectedIds);
@@ -724,11 +779,18 @@ export default function CredentialVaultPanel() {
           quickFilterText={quickFilterText}
         />
       </div>
-      {queueCrackJobsStatus && (
+      {(queueCrackJobsStatus || copySelectedStatus) && (
         <div className="pointer-events-none fixed bottom-20 left-1/2 z-50 -translate-x-1/2">
-          <div className="pointer-events-auto rounded-xl border border-teal-700/60 bg-teal-900/20 px-3 py-2 text-sm text-teal-100 shadow-2xl backdrop-blur">
-            {queueCrackJobsStatus}
-          </div>
+          {queueCrackJobsStatus && (
+            <div className="pointer-events-auto rounded-xl border border-teal-700/60 bg-teal-900/20 px-3 py-2 text-sm text-teal-100 shadow-2xl backdrop-blur">
+              {queueCrackJobsStatus}
+            </div>
+          )}
+          {copySelectedStatus && (
+            <div className="pointer-events-auto mt-2 rounded-xl border border-blue-700/60 bg-blue-900/20 px-3 py-2 text-sm text-blue-100 shadow-2xl backdrop-blur">
+              {copySelectedStatus}
+            </div>
+          )}
         </div>
       )}
       {selectedIds.size > 0 && (
@@ -755,6 +817,14 @@ export default function CredentialVaultPanel() {
                 </div>
               )}
             </div>
+            <button
+              onClick={handleCopySelected}
+              className="ml-auto bg-blue-600 hover:bg-blue-500 text-white p-2 rounded-lg transition-colors"
+              aria-label="Copy selected credentials"
+              title="Copy selected credentials"
+            >
+              <CopyIcon className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+            </button>
           </div>
         </div>
       )}

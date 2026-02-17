@@ -74,6 +74,74 @@ test.describe('Credential Vault', () => {
     await expect(page.locator('.ag-center-cols-container')).not.toContainText(marker);
   });
 
+  test('copies only selected rows from the floating action bar', async ({ page }) => {
+    const rowOne = {
+      username: `copy-ignore-${Date.now()}`,
+      password: 'ignore-pass',
+      hash: 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    };
+    const rowTwo = {
+      username: `copy-keep-${Date.now()}`,
+      password: 'keep-pass',
+      hash: 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+    };
+
+    await editTextCell(page, 0, 'username', rowOne.username);
+    await editTextCell(page, 0, 'password', rowOne.password);
+    await editTextCell(page, 0, 'hash', rowOne.hash);
+
+    await expect(gridRowByIndex(page, 1)).toBeVisible();
+    await editTextCell(page, 1, 'username', rowTwo.username);
+    await editTextCell(page, 1, 'password', rowTwo.password);
+    await editTextCell(page, 1, 'hash', rowTwo.hash);
+
+    const copyButton = page.getByRole('button', { name: 'Copy selected credentials' });
+    await expect(copyButton).toBeHidden();
+
+    await selectRowCheckbox(page, 1);
+    await expect(copyButton).toBeVisible();
+
+    await page.evaluate(() => {
+      let copiedText = '';
+      Object.defineProperty(window, '__e2eCopiedText', {
+        configurable: true,
+        get: () => copiedText,
+      });
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: {
+          writeText: async (text: string) => {
+            copiedText = text;
+          },
+        },
+      });
+    });
+
+    await copyButton.click();
+    await expect(page.getByText('Copied 1 credential to clipboard.')).toBeVisible();
+
+    const copiedText = await page.evaluate(
+      () => (window as { __e2eCopiedText?: string }).__e2eCopiedText
+    );
+    expect(copiedText).toBe(`${rowTwo.username}\t\t${rowTwo.password}\t\t${rowTwo.hash}`);
+    expect(copiedText).not.toContain(rowOne.username);
+
+    await selectRowCheckbox(page, 0);
+    await expect(page.getByText('2 selected')).toBeVisible();
+    await copyButton.click();
+    await expect(page.getByText('Copied 2 credentials to clipboard.')).toBeVisible();
+
+    const copiedTwoRows = await page.evaluate(
+      () => (window as { __e2eCopiedText?: string }).__e2eCopiedText
+    );
+    const expectedTwoRows = [
+      `${rowTwo.username}\t\t${rowTwo.password}\t\t${rowTwo.hash}`,
+      `${rowOne.username}\t\t${rowOne.password}\t\t${rowOne.hash}`,
+    ].join('\n');
+    expect(copiedTwoRows).toBe(expectedTwoRows);
+    expect(copiedTwoRows?.split('\n')).toHaveLength(2);
+  });
+
   test('imports credentials from an impacket NTLM log', async ({ page }) => {
     await page.getByRole('button', { name: 'Log Import' }).click();
     await expect(page.getByRole('heading', { name: 'Log Import' })).toBeVisible();
