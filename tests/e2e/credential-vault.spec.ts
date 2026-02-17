@@ -166,6 +166,39 @@ test.describe('Credential Vault', () => {
     );
   });
 
+  test('imports additional secretsdump formats (status and cached domain)', async ({ page }) => {
+    const domainUsername = `john-${Date.now()}`;
+    const domainUser = `OFFSEC\\${domainUsername}`;
+    const localUser = `local-${Date.now()}`;
+    const cachedUser = `cached-${Date.now()}`;
+    const ntlmOne = '97f2592347d8fbe42be381726ff9ea83';
+    const ntlmTwo = '31d6cfe0d16ae931b73c59d7e0c089c0';
+    const cachedHash = '8f4b9a2e89f4966c5b56b7f97f1b52fd';
+
+    await page.getByRole('button', { name: 'Log Import' }).click();
+    await expect(page.getByRole('heading', { name: 'Log Import' })).toBeVisible();
+
+    const rawLog = [
+      `${domainUser}:1107:aad3b435b51404eeaad3b435b51404ee:${ntlmOne}::: (status=Enabled)`,
+      `${localUser}:501:aad3b435b51404eeaad3b435b51404ee:${ntlmTwo}:::`,
+      `OFFSEC/${cachedUser}:${cachedHash}`,
+    ].join('\n');
+
+    await page.locator('#log-import-raw').fill(rawLog);
+    await page.getByRole('button', { name: 'Import', exact: true }).click();
+
+    await expect(page.getByText('Parsed: 3')).toBeVisible({ timeout: 10000 });
+
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByRole('heading', { name: 'Log Import' })).toHaveCount(0);
+
+    await expect(page.locator('.ag-center-cols-container')).toContainText(domainUsername);
+    await expect(page.locator('.ag-center-cols-container')).toContainText(localUser);
+    await expect(page.locator('.ag-center-cols-container')).toContainText(cachedUser);
+    await expect(page.locator('.ag-center-cols-container')).toContainText(ntlmOne);
+    await expect(page.locator('.ag-center-cols-container')).toContainText(cachedHash);
+  });
+
   test('imports mimikatz log with both NTLM and plaintext passwords', async ({ page }) => {
     const adminUser = `mimi-admin-${Date.now()}`;
     const passwordOnlyUser = `mimi-user-${Date.now()}`;

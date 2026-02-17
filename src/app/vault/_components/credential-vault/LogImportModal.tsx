@@ -106,10 +106,17 @@ export default function LogImportModal({ isOpen, onClose, onImport }: LogImportM
               id="log-import-type"
               value={selectedType}
               onChange={event => setSelectedType(event.target.value as LogImportType)}
-              className="w-full bg-gray-900/50 rounded-xl border border-gray-700 p-3"
+              className="w-full bg-gray-900 text-gray-100 rounded-xl border border-gray-600 p-3 focus:outline-none focus:ring-2 focus:ring-blue-500/60 focus:border-blue-500"
             >
               {LOG_TYPE_OPTIONS.map(option => (
-                <option key={option.id} value={option.id} disabled={!option.enabled}>
+                <option
+                  key={option.id}
+                  value={option.id}
+                  disabled={!option.enabled}
+                  className={
+                    option.enabled ? 'bg-gray-900 text-gray-100' : 'bg-gray-900 text-gray-500'
+                  }
+                >
                   {option.label}
                 </option>
               ))}
