@@ -249,6 +249,38 @@ test.describe('Credential Vault', () => {
     await expect(page.locator('.ag-center-cols-container')).toContainText(secondPassword);
   });
 
+  test('imports generic username/password formats', async ({ page }) => {
+    const userColon = `generic-colon-${Date.now()}`;
+    const userDash = `generic-dash-${Date.now()}`;
+    const userSpace = `generic-space-${Date.now()}`;
+
+    await page.getByRole('button', { name: 'Log Import' }).click();
+    await expect(page.getByRole('heading', { name: 'Log Import' })).toBeVisible();
+    await page.locator('#log-import-type').selectOption('generic');
+
+    const rawLog = [
+      `${userColon}:P@ssw0rd123`,
+      `${userDash} - Winter2026!`,
+      `${userSpace} springtime!`,
+      '# comment line should be ignored',
+    ].join('\n');
+
+    await page.locator('#log-import-raw').fill(rawLog);
+    await page.getByRole('button', { name: 'Import', exact: true }).click();
+
+    await expect(page.getByText('Parsed: 3')).toBeVisible({ timeout: 10000 });
+
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByRole('heading', { name: 'Log Import' })).toHaveCount(0);
+
+    await expect(page.locator('.ag-center-cols-container')).toContainText(userColon);
+    await expect(page.locator('.ag-center-cols-container')).toContainText('P@ssw0rd123');
+    await expect(page.locator('.ag-center-cols-container')).toContainText(userDash);
+    await expect(page.locator('.ag-center-cols-container')).toContainText('Winter2026!');
+    await expect(page.locator('.ag-center-cols-container')).toContainText(userSpace);
+    await expect(page.locator('.ag-center-cols-container')).toContainText('springtime!');
+  });
+
   test('routes shared-username imports to Shared unless hash conflicts', async ({ page }) => {
     const sourceTabName = `E2E-Import-${Date.now()}`;
     const sharedUsername = `shareduser${Date.now()}`;

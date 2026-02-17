@@ -42,6 +42,7 @@ import {
 import type { HashResult } from '@/types/hashResults';
 import { LogImportResult, LogImportType } from '@/types/logImport';
 import { mergeImportedCredentials, normalizeUsername } from '@/utils/logImport/merge';
+import { parseGenericCredentialLog } from '@/utils/logImport/parsers/generic';
 import { parseImpacketNtlmLog } from '@/utils/logImport/parsers/impacketNtlm';
 import { parseMimikatzLog } from '@/utils/logImport/parsers/mimikatz';
 
@@ -314,6 +315,8 @@ export function applyCredentialVaultLogImport(
     parsedRecords = parseImpacketNtlmLog(rawLog);
   } else if (logType === 'mimikatz') {
     parsedRecords = parseMimikatzLog(rawLog);
+  } else if (logType === 'generic') {
+    parsedRecords = parseGenericCredentialLog(rawLog);
   } else {
     return { vault: loadVaultFromDatabase(), result: emptyImportResult() };
   }

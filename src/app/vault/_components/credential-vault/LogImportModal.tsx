@@ -19,6 +19,7 @@ interface LogTypeOption {
 const LOG_TYPE_OPTIONS: LogTypeOption[] = [
   { id: 'impacket-ntlm', label: 'Impacket - SAM NTLM', enabled: true },
   { id: 'mimikatz', label: 'Mimikatz - sekurlsa::logonpasswords', enabled: true },
+  { id: 'generic', label: 'Generic (username + password)', enabled: true },
   { id: 'impacket-cached-domain', label: 'Impacket - Cached Domain (coming soon)', enabled: false },
 ];
 
