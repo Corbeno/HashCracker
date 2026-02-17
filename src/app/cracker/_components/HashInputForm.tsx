@@ -27,7 +27,7 @@ export default function HashInputForm({
   openBenchmarkModal,
   onCrackingStart,
 }: HashInputFormProps) {
-  const [attackMode, setAttackMode] = useState<string>('rockyou');
+  const [attackMode, setAttackMode] = useState<string>('smart');
   const { error, submit } = useCrackSubmit({ onCrackingStart });
 
   const handleAttackModeChange = (option: DropdownOption) => {

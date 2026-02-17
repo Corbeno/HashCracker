@@ -13,6 +13,8 @@ export interface CrackRequest {
   mode: string;
 }
 
+const SUPER_ATTACK_MODE_SEQUENCE = ['tsi', 'rockyou', 'one-rule-to-rule-them-still'] as const;
+
 export async function POST(req: NextRequest) {
   try {
     const { hashes, type, mode } = (await req.json()) as CrackRequest;
@@ -34,6 +36,39 @@ export async function POST(req: NextRequest) {
 
     if (!attackMode) {
       return NextResponse.json({ error: 'Invalid attack mode' }, { status: 400 });
+    }
+
+    if (mode === 'smart') {
+      const resolvedModes = SUPER_ATTACK_MODE_SEQUENCE.map(
+        modeId => config.hashcat.attackModes[modeId]
+      );
+      if (resolvedModes.some(nextMode => !nextMode)) {
+        return NextResponse.json({ error: 'Smart attack mode is misconfigured' }, { status: 500 });
+      }
+
+      const queuedJobIds: string[] = [];
+      for (const queuedMode of resolvedModes) {
+        const job: HashJob = {
+          id: crypto.randomUUID(),
+          hashes,
+          type: hashType,
+          mode: queuedMode,
+          status: 'pending',
+          startTime: new Date().toISOString(),
+          results: [],
+          isCaseSensitive: isHashTypeCaseSensitive(hashType),
+        };
+
+        await jobQueue.addJob(job);
+        queuedJobIds.push(job.id);
+      }
+
+      return NextResponse.json({
+        message: 'Smart attack queued 3 jobs',
+        jobId: queuedJobIds[0],
+        jobIds: queuedJobIds,
+        isQueued: true,
+      });
     }
 
     // Create a new job

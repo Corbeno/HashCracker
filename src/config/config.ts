@@ -44,6 +44,10 @@ const config: Config = {
     },
     hashTypes: hashTypes,
     attackModes: {
+      smart: {
+        name: 'Smart',
+        description: 'Queues TSI, RockYou, then RockYou + One Rule To Rule Them Still',
+      },
       tsi: {
         name: 'TSI',
         description: 'All TSI combinations',

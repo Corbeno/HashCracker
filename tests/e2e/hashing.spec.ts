@@ -35,6 +35,26 @@ test.describe('Hashing Flow', () => {
     await waitForJobVisible(page, hash);
   });
 
+  test('should queue three jobs in Smart mode', async ({ page }) => {
+    const firstHash = randomHex();
+    const secondHash = randomHex();
+
+    await selectHashType(page, 0);
+    await selectAttackMode(page, 'smart');
+    await startCracking(page, [firstHash, secondHash]);
+
+    const superJobs = page.getByTestId('job-card').filter({ hasText: firstHash });
+    await expect(superJobs).toHaveCount(3, { timeout: 15000 });
+
+    await expect(superJobs.filter({ hasText: 'Mode: TSI' })).toHaveCount(1);
+    await expect(superJobs.filter({ hasText: 'One Rule To Rule Them Still' })).toHaveCount(1);
+    await expect(
+      superJobs
+        .filter({ hasText: 'Mode: RockYou' })
+        .filter({ hasNotText: 'One Rule To Rule Them Still' })
+    ).toHaveCount(1);
+  });
+
   test('should crack a simple MD5 hash', async ({ page }) => {
     // Submit known MD5 hash (password = "password")
     const hash = '5f4dcc3b5aa765d61d8327deb882cf99';
