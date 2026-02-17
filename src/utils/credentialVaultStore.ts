@@ -31,6 +31,7 @@ import {
 import { logger } from './logger';
 
 import { normalizeHashForType } from '@/utils/hashNormalization';
+import { findCrackedHashPassword } from '@/utils/hashVaultStore';
 
 import {
   Credential,
@@ -262,6 +263,20 @@ export function applyCredentialVaultMutation(
           mutation.payload.field,
           mutation.payload.value
         );
+
+        if (
+          (mutation.payload.field === 'hash' || mutation.payload.field === 'hashType') &&
+          nextCredential.hashType != null &&
+          nextCredential.hash.trim() !== ''
+        ) {
+          const crackedPassword = findCrackedHashPassword(
+            nextCredential.hashType,
+            nextCredential.hash
+          );
+          if (crackedPassword != null) {
+            nextCredential.password = crackedPassword;
+          }
+        }
 
         const updatePayload: CredentialUpdateParams = {
           tabId: mutation.payload.tabId,

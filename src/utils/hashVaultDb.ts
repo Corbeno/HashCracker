@@ -16,6 +16,11 @@ export interface HashVaultRow {
   added_date: string;
 }
 
+interface HashLookupParams {
+  hashType: number;
+  hash: string;
+}
+
 function ensureHashVaultDbParentExists(): void {
   const directory = path.dirname(HASH_VAULT_DB_PATH);
   if (!fs.existsSync(directory)) {
@@ -108,5 +113,26 @@ export function getHashVaultRowsByType(hashType: number): HashVaultRow[] {
         )
         .all({ hashType }),
     { hashType }
+  );
+}
+
+export function getHashVaultRowByTypeAndHash(
+  hashType: number,
+  hash: string
+): HashVaultRow | undefined {
+  return withHashVaultSql(
+    'hashVault.getByTypeAndHash',
+    () =>
+      getDatabase()
+        .prepare<HashLookupParams, HashVaultRow>(
+          `
+            SELECT hash_type, hash, cracked_hash, added_date
+            FROM hash_vault
+            WHERE hash_type = @hashType AND hash = @hash
+            LIMIT 1
+          `
+        )
+        .get({ hashType, hash }),
+    { hashType, hash }
   );
 }

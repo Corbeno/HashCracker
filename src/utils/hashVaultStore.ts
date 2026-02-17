@@ -4,6 +4,7 @@ import { normalizeHashForType } from '@/utils/hashNormalization';
 
 import {
   getAllHashVaultRows,
+  getHashVaultRowByTypeAndHash,
   getHashVaultRowsByType,
   upsertHashVaultRow,
   withHashVaultTransaction,
@@ -43,4 +44,12 @@ export function upsertCrackedHashes(hashType: number, crackedResults: HashResult
       });
     }
   });
+}
+
+export function findCrackedHashPassword(hashType: number, hash: string): string | null {
+  const normalizedHash = normalizeHashForType(hashType, hash);
+  if (!normalizedHash) return null;
+
+  const row = getHashVaultRowByTypeAndHash(hashType, normalizedHash);
+  return row?.cracked_hash ?? null;
 }

@@ -1,6 +1,11 @@
 import { expect, test } from '@playwright/test';
 
 import {
+  crackedHashesTbody,
+  selectHashType as selectCrackerHashType,
+  startCracking,
+} from './utils/cracker';
+import {
   createVaultTab,
   deleteAllE2ETabs,
   editTextCell,
@@ -11,6 +16,7 @@ import {
   selectRowCheckbox,
   setHashType,
 } from './utils/vault';
+import { gotoCracker } from './utils/navigation';
 
 test.describe('Credential Vault', () => {
   test.beforeEach(async ({ page }) => {
@@ -57,6 +63,28 @@ test.describe('Credential Vault', () => {
     await expect(gridCellByRowIndex(page, 0, 'hash')).toContainText(hash);
     await expect(gridCellByRowIndex(page, 0, 'hashType')).toContainText('1000');
     await expect(gridCellByRowIndex(page, 0, 'notes')).toContainText(notes);
+  });
+
+  test('autofills password from cracked table when hash and hash type are both known', async ({
+    page,
+  }) => {
+    const hash = '5f4dcc3b5aa765d61d8327deb882cf99';
+    const username = `vault-autofill-${Date.now()}`;
+
+    await gotoCracker(page);
+    await selectCrackerHashType(page, 0);
+    await startCracking(page, hash);
+    await expect(crackedHashesTbody(page)).toContainText(hash, { timeout: 60000 });
+    await expect(crackedHashesTbody(page)).toContainText('password', { timeout: 60000 });
+
+    await gotoVault(page);
+    await expectGridReady(page);
+
+    await editTextCell(page, 0, 'username', username);
+    await editTextCell(page, 0, 'hash', hash);
+    await setHashType(page, 0, 0);
+
+    await expect(gridCellByRowIndex(page, 0, 'password')).toContainText('password');
   });
 
   test('selects and deletes a row using the bottom action bar', async ({ page }) => {
