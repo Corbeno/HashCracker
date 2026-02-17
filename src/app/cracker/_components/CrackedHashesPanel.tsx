@@ -8,11 +8,13 @@ import { HashVaultEntry } from '@/types/hashVault';
 
 interface CrackedHashesPanelProps {
   crackedHashes: HashVaultEntry[];
+  onViewHashPasswordPairs: () => void;
   onViewPotfile: () => void;
 }
 
 export default function CrackedHashesPanel({
   crackedHashes,
+  onViewHashPasswordPairs,
   onViewPotfile,
 }: CrackedHashesPanelProps) {
   const [expanded, setExpanded] = useState(false);
@@ -50,13 +52,22 @@ export default function CrackedHashesPanel({
     >
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-2xl font-bold">Cracked Hashes</h2>
-        <button
-          onClick={onViewPotfile}
-          className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm transition-colors"
-          data-testid="open-potfile"
-        >
-          View Potfile
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onViewHashPasswordPairs}
+            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+            data-testid="open-cracked-pairs"
+          >
+            Plaintext
+          </button>
+          <button
+            onClick={onViewPotfile}
+            className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+            data-testid="open-potfile"
+          >
+            View Potfile
+          </button>
+        </div>
       </div>
       <div className="overflow-auto">
         {crackedHashes.length === 0 ? (

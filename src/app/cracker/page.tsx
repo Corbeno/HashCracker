@@ -4,6 +4,7 @@ import { useState } from 'react';
 
 import ActiveJobsPanel from '@/app/cracker/_components/ActiveJobsPanel';
 import BenchmarkModal from '@/app/cracker/_components/BenchmarkModal';
+import CrackedHashPasswordModal from '@/app/cracker/_components/CrackedHashPasswordModal';
 import CrackedHashesPanel from '@/app/cracker/_components/CrackedHashesPanel';
 import HashInputForm from '@/app/cracker/_components/HashInputForm';
 import PotfileModal from '@/app/cracker/_components/PotfileModal';
@@ -24,6 +25,7 @@ export default function CrackerPage() {
   const [hashInput, setHashInput] = useState('');
   const [hashType, setHashType] = useState<number>(0);
   const [isPotfileModalOpen, setIsPotfileModalOpen] = useState(false);
+  const [isCrackedPairsModalOpen, setIsCrackedPairsModalOpen] = useState(false);
   const [isYoinkHashesModalOpen, setIsYoinkHashesModalOpen] = useState(false);
   const [isBenchmarkModalOpen, setIsBenchmarkModalOpen] = useState(false);
 
@@ -58,6 +60,7 @@ export default function CrackerPage() {
 
         <CrackedHashesPanel
           crackedHashes={crackedHashes}
+          onViewHashPasswordPairs={() => setIsCrackedPairsModalOpen(true)}
           onViewPotfile={() => setIsPotfileModalOpen(true)}
         />
 
@@ -72,6 +75,12 @@ export default function CrackerPage() {
       </div>
 
       {isPotfileModalOpen && <PotfileModal onClose={() => setIsPotfileModalOpen(false)} />}
+      {isCrackedPairsModalOpen && (
+        <CrackedHashPasswordModal
+          crackedHashes={crackedHashes}
+          onClose={() => setIsCrackedPairsModalOpen(false)}
+        />
+      )}
       <YoinkHashesModal
         isOpen={isYoinkHashesModalOpen}
         onClose={() => setIsYoinkHashesModalOpen(false)}
