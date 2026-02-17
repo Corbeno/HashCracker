@@ -38,12 +38,20 @@ export function mergeImportedCredentials(
   for (const record of parsedRecords) {
     const canonicalUsername = stripDomainPrefix(record.username);
     const normalizedUsername = normalizeUsername(record.username);
+    const normalizedHash = record.hash?.trim().toLowerCase() ?? '';
+    const normalizedPassword = record.password?.trim() ?? '';
+    const hasHash = normalizedHash !== '';
+    const hasPassword = normalizedPassword !== '';
     if (!normalizedUsername) {
       skippedCount += 1;
       continue;
     }
+    if (!hasHash && !hasPassword) {
+      skippedCount += 1;
+      continue;
+    }
 
-    const importKey = `${normalizedUsername}:${record.hash.toLowerCase()}`;
+    const importKey = `${normalizedUsername}:${normalizedHash}:${normalizedPassword}`;
     if (seenImportKeys.has(importKey)) {
       skippedCount += 1;
       continue;
@@ -55,9 +63,9 @@ export function mergeImportedCredentials(
       nextCredentials.push({
         id: crypto.randomUUID(),
         username: canonicalUsername,
-        password: '',
-        hash: record.hash,
-        hashType: record.hashType,
+        password: hasPassword ? normalizedPassword : '',
+        hash: hasHash ? normalizedHash : '',
+        hashType: hasHash ? (record.hashType ?? null) : null,
         device: '',
       });
       usernameToIndex.set(normalizedUsername, nextCredentials.length - 1);
@@ -68,17 +76,29 @@ export function mergeImportedCredentials(
     const existing = nextCredentials[existingIndex];
     let changed = false;
 
-    if (isBlank(existing.hash)) {
-      existing.hash = record.hash;
-      changed = true;
-    } else if (existing.hash.toLowerCase() !== record.hash.toLowerCase()) {
-      conflictCount += 1;
-      continue;
+    if (hasHash) {
+      if (isBlank(existing.hash)) {
+        existing.hash = normalizedHash;
+        changed = true;
+      } else if (existing.hash.toLowerCase() !== normalizedHash) {
+        conflictCount += 1;
+        continue;
+      }
+
+      if (existing.hashType == null && record.hashType != null) {
+        existing.hashType = record.hashType;
+        changed = true;
+      }
     }
 
-    if (existing.hashType == null) {
-      existing.hashType = record.hashType;
-      changed = true;
+    if (hasPassword) {
+      if (isBlank(existing.password)) {
+        existing.password = normalizedPassword;
+        changed = true;
+      } else if (existing.password !== normalizedPassword) {
+        conflictCount += 1;
+        continue;
+      }
     }
 
     if (changed) {

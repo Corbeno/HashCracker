@@ -166,6 +166,56 @@ test.describe('Credential Vault', () => {
     );
   });
 
+  test('imports mimikatz log with both NTLM and plaintext passwords', async ({ page }) => {
+    const adminUser = `mimi-admin-${Date.now()}`;
+    const passwordOnlyUser = `mimi-user-${Date.now()}`;
+    const adminHash = 'e52cac67419a9a22ecb08369099ed302';
+    const adminPassword = 'vagrant!';
+    const secondPassword = 'Passw0rd!';
+
+    await page.getByRole('button', { name: 'Log Import' }).click();
+    await expect(page.getByRole('heading', { name: 'Log Import' })).toBeVisible();
+    await page.locator('#log-import-type').selectOption('mimikatz');
+
+    const rawLog = [
+      'mimikatz # sekurlsa::logonpasswords',
+      '',
+      `User Name         : ${adminUser}`,
+      'Domain            : LAB',
+      'msv :',
+      ' [00000003] Primary',
+      ` * Username : ${adminUser}`,
+      ' * Domain   : LAB',
+      ` * NTLM     : ${adminHash}`,
+      'tspkg :',
+      ` * Username : ${adminUser}`,
+      ' * Domain   : LAB',
+      ` * Password : ${adminPassword}`,
+      'wdigest :',
+      ` * Username : ${adminUser}`,
+      ' * Domain   : LAB',
+      ' * Password : (null)',
+      'kerberos :',
+      ` * Username : ${passwordOnlyUser}`,
+      ' * Domain   : LAB',
+      ` * Password : ${secondPassword}`,
+    ].join('\n');
+
+    await page.locator('#log-import-raw').fill(rawLog);
+    await page.getByRole('button', { name: 'Import', exact: true }).click();
+
+    await expect(page.getByText('Parsed: 2')).toBeVisible({ timeout: 10000 });
+
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(page.getByRole('heading', { name: 'Log Import' })).toHaveCount(0);
+
+    await expect(page.locator('.ag-center-cols-container')).toContainText(adminUser);
+    await expect(page.locator('.ag-center-cols-container')).toContainText(adminHash);
+    await expect(page.locator('.ag-center-cols-container')).toContainText(adminPassword);
+    await expect(page.locator('.ag-center-cols-container')).toContainText(passwordOnlyUser);
+    await expect(page.locator('.ag-center-cols-container')).toContainText(secondPassword);
+  });
+
   test('routes shared-username imports to Shared unless hash conflicts', async ({ page }) => {
     const sourceTabName = `E2E-Import-${Date.now()}`;
     const sharedUsername = `shareduser${Date.now()}`;

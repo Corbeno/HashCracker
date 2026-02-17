@@ -43,6 +43,7 @@ import type { HashResult } from '@/types/hashResults';
 import { LogImportResult, LogImportType } from '@/types/logImport';
 import { mergeImportedCredentials, normalizeUsername } from '@/utils/logImport/merge';
 import { parseImpacketNtlmLog } from '@/utils/logImport/parsers/impacketNtlm';
+import { parseMimikatzLog } from '@/utils/logImport/parsers/mimikatz';
 
 function buildBlankCredential(id?: string): Credential {
   return {
@@ -311,6 +312,8 @@ export function applyCredentialVaultLogImport(
   let parsedRecords: ReturnType<typeof parseImpacketNtlmLog>;
   if (logType === 'impacket-ntlm') {
     parsedRecords = parseImpacketNtlmLog(rawLog);
+  } else if (logType === 'mimikatz') {
+    parsedRecords = parseMimikatzLog(rawLog);
   } else {
     return { vault: loadVaultFromDatabase(), result: emptyImportResult() };
   }
@@ -360,11 +363,13 @@ export function applyCredentialVaultLogImport(
       continue;
     }
 
+    const recordHash = record.hash?.trim() ?? '';
     const sharedHash = sharedCredential.hash.trim();
-    const hashesMatch = sharedHash.toLowerCase() === record.hash.toLowerCase();
+    const recordHasHash = recordHash.length > 0;
+    const hashesMatch = sharedHash.toLowerCase() === recordHash.toLowerCase();
 
     // If the hashes don't match, don't put the cred on the shared tab, even though it has a shared username
-    if (sharedHash.length > 0 && !hashesMatch) {
+    if (sharedHash.length > 0 && recordHasHash && !hashesMatch) {
       primaryRecords.push(record);
       continue;
     }

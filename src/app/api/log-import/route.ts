@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 export const preferredRegion = 'auto';
 
 function isSupportedLogType(logType: string): boolean {
-  return logType === 'impacket-ntlm';
+  return logType === 'impacket-ntlm' || logType === 'mimikatz';
 }
 
 export async function POST(req: NextRequest) {
