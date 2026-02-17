@@ -17,7 +17,7 @@ export function mapVaultCredentialRowToCredential(row: VaultCredentialRow): Cred
     password: row.password,
     hash: row.hash,
     hashType: normalizeHashTypeValue(row.hash_type),
-    device: row.device,
+    notes: row.notes,
   };
 }
 

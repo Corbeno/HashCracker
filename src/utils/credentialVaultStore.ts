@@ -53,7 +53,7 @@ function buildBlankCredential(id?: string): Credential {
     password: '',
     hash: '',
     hashType: null,
-    device: '',
+    notes: '',
   };
 }
 
@@ -106,7 +106,7 @@ function writeVaultToDatabase(vault: CredentialVaultDocument): void {
           password: credential.password,
           hash: credential.hash,
           hashType: normalizeHashTypeValue(credential.hashType),
-          device: credential.device,
+          notes: credential.notes,
           position: credentialPosition,
         });
       }
@@ -158,7 +158,7 @@ function upsertTabCredentials(tabId: string, credentials: Credential[]): void {
       password: credential.password,
       hash: credential.hash,
       hashType: normalizeHashTypeValue(credential.hashType),
-      device: credential.device,
+      notes: credential.notes,
       position,
     });
   }
@@ -210,7 +210,7 @@ export function applyCredentialVaultMutation(
           password: credential.password,
           hash: credential.hash,
           hashType: credential.hashType,
-          device: credential.device,
+          notes: credential.notes,
           position: 0,
         });
 
@@ -242,7 +242,7 @@ export function applyCredentialVaultMutation(
           password: credential.password,
           hash: credential.hash,
           hashType: credential.hashType,
-          device: credential.device,
+          notes: credential.notes,
           position: getMaxCredentialPositionForTab(mutation.payload.tabId) + 1,
         });
 
@@ -270,7 +270,7 @@ export function applyCredentialVaultMutation(
           password: nextCredential.password,
           hash: nextCredential.hash,
           hashType: nextCredential.hashType,
-          device: nextCredential.device,
+          notes: nextCredential.notes,
         };
 
         changed = updateCredentialIfChanged(updatePayload) > 0;

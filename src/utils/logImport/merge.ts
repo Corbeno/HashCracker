@@ -66,7 +66,7 @@ export function mergeImportedCredentials(
         password: hasPassword ? normalizedPassword : '',
         hash: hasHash ? normalizedHash : '',
         hashType: hasHash ? (record.hashType ?? null) : null,
-        device: '',
+        notes: '',
       });
       usernameToIndex.set(normalizedUsername, nextCredentials.length - 1);
       createdCount += 1;

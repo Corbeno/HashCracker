@@ -4,7 +4,7 @@ export interface Credential {
   password: string;
   hash: string;
   hashType: number | null;
-  device: string;
+  notes: string;
 }
 
 export interface CredentialVaultTab {

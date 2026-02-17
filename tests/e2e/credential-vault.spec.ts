@@ -37,13 +37,13 @@ test.describe('Credential Vault', () => {
     const username = `alice-${Date.now()}`;
     const password = 'hunter2';
     const hash = '8846f7eaee8fb117ad06bdd830b7586c';
-    const device = 'VM-01';
+    const notes = 'Cracked during engagement';
 
     await editTextCell(page, 0, 'username', username);
     await editTextCell(page, 0, 'password', password);
     await editTextCell(page, 0, 'hash', hash);
     await setHashType(page, 0, 1000);
-    await editTextCell(page, 0, 'device', device);
+    await editTextCell(page, 0, 'notes', notes);
 
     // Auto-append should create a second row after editing the last row.
     await expect(gridRowByIndex(page, 1)).toBeVisible();
@@ -56,7 +56,7 @@ test.describe('Credential Vault', () => {
     await expect(gridCellByRowIndex(page, 0, 'password')).toContainText(password);
     await expect(gridCellByRowIndex(page, 0, 'hash')).toContainText(hash);
     await expect(gridCellByRowIndex(page, 0, 'hashType')).toContainText('1000');
-    await expect(gridCellByRowIndex(page, 0, 'device')).toContainText(device);
+    await expect(gridCellByRowIndex(page, 0, 'notes')).toContainText(notes);
   });
 
   test('selects and deletes a row using the bottom action bar', async ({ page }) => {

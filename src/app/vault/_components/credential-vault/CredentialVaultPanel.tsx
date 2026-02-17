@@ -67,7 +67,7 @@ function hasAnyCredentialData(credential: Record<string, unknown>): boolean {
     credential.password,
     credential.hash,
     credential.hashType,
-    credential.device,
+    credential.notes,
   ].some(value => String(value ?? '').trim() !== '');
 }
 
@@ -444,8 +444,8 @@ export default function CredentialVaultPanel() {
         },
       },
       {
-        headerName: 'Device',
-        field: 'device',
+        headerName: 'Notes',
+        field: 'notes',
         flex: 1,
       },
     ],

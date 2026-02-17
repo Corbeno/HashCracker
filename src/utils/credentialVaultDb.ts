@@ -22,7 +22,7 @@ export interface VaultCredentialRow {
   password: string;
   hash: string;
   hash_type: number | null;
-  device: string;
+  notes: string;
   position: number;
 }
 
@@ -47,7 +47,7 @@ export interface VaultCredentialParams {
   password: string;
   hash: string;
   hashType: number | null;
-  device: string;
+  notes: string;
   position: number;
 }
 
@@ -76,7 +76,7 @@ export interface CredentialUpdateParams {
   password: string;
   hash: string;
   hashType: number | null;
-  device: string;
+  notes: string;
 }
 
 interface HashTypeParams {
@@ -127,7 +127,7 @@ function getDatabase(): Database.Database {
         password TEXT NOT NULL,
         hash TEXT NOT NULL,
         hash_type INTEGER,
-        device TEXT NOT NULL,
+        notes TEXT NOT NULL,
         position INTEGER NOT NULL,
         FOREIGN KEY (tab_id) REFERENCES vault_tabs(id) ON DELETE CASCADE
       );
@@ -175,7 +175,7 @@ export function getAllCredentials(): VaultCredentialRow[] {
             password,
             hash,
             hash_type,
-            device,
+            notes,
             position
           FROM vault_credentials
           ORDER BY tab_id ASC, position ASC
@@ -199,7 +199,7 @@ export function getCredentialsForTab(tabId: string): VaultCredentialRow[] {
               password,
               hash,
               hash_type,
-              device,
+              notes,
               position
             FROM vault_credentials
             WHERE tab_id = @tabId
@@ -310,7 +310,7 @@ export function insertCredential(params: VaultCredentialParams): void {
               password,
               hash,
               hash_type,
-              device,
+              notes,
               position
             ) VALUES (
               @id,
@@ -319,7 +319,7 @@ export function insertCredential(params: VaultCredentialParams): void {
               @password,
               @hash,
               @hashType,
-              @device,
+              @notes,
               @position
             )
           `
@@ -346,7 +346,7 @@ export function getCredentialInTab(
               password,
               hash,
               hash_type,
-              device,
+              notes,
               position
             FROM vault_credentials
             WHERE tab_id = @tabId AND id = @credentialId
@@ -370,14 +370,14 @@ export function updateCredentialIfChanged(params: CredentialUpdateParams): numbe
               password = @password,
               hash = @hash,
               hash_type = @hashType,
-              device = @device
+              notes = @notes
             WHERE tab_id = @tabId AND id = @credentialId
               AND (
                 username <> @username OR
                 password <> @password OR
                 hash <> @hash OR
                 COALESCE(hash_type, -1) <> COALESCE(@hashType, -1) OR
-                device <> @device
+                notes <> @notes
               )
           `
         )
