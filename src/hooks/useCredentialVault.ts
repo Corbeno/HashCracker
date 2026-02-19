@@ -174,6 +174,33 @@ export default function useCredentialVault() {
     [mutateVault]
   );
 
+  const moveTabAfter = useCallback(
+    (tabId: string, afterTabId: string) => {
+      if (tabId === afterTabId) return;
+      void mutateVault({
+        type: 'tab.moveAfter',
+        payload: {
+          tabId,
+          afterTabId,
+        },
+      });
+    },
+    [mutateVault]
+  );
+
+  const moveTab = useCallback(
+    (tabId: string, direction: 'left' | 'right') => {
+      void mutateVault({
+        type: 'tab.move',
+        payload: {
+          tabId,
+          direction,
+        },
+      });
+    },
+    [mutateVault]
+  );
+
   const addCredential = useCallback(
     (tabId: string, id?: string) => {
       void mutateVault({
@@ -253,6 +280,8 @@ export default function useCredentialVault() {
     setActiveTab,
     renameTab,
     deleteTab,
+    moveTabAfter,
+    moveTab,
     addCredential,
     updateCredential,
     deleteCredentials,

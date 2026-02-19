@@ -21,24 +21,13 @@ function waitForVaultPost(page: Page) {
 }
 
 function vaultTabStrip(page: Page): Locator {
-  // The tab strip is the flex container that contains either:
-  // - the "+" tab button, or
-  // - the new tab name input, or
-  // - the rename tab input.
-  //
-  // We anchor on whichever is currently rendered so callers keep working
-  // during create/rename flows.
-  const addButton = page.locator('button[aria-label="Add vault tab"]');
-  const newTabInput = page.locator('input[aria-label="New tab name"]');
-  const renameTabInput = page.locator('input[aria-label="Rename tab"]');
-  const anchor = addButton.or(newTabInput).or(renameTabInput).first();
-  return anchor.locator('xpath=..');
+  return page.getByTestId('vault-tab-strip');
 }
 
 export async function createVaultTab(page: Page, name?: string): Promise<string> {
   const tabName = name ?? uniqueName('E2E-');
 
-  await page.locator('button[aria-label="Add vault tab"]').click();
+  await page.getByTestId('vault-tab-add').click();
   const input = page.locator('input[aria-label="New tab name"]');
   await expect(input).toBeVisible({ timeout: 10000 });
   await input.fill(tabName);
@@ -59,7 +48,47 @@ export async function openTabContextMenu(page: Page, tabName: string) {
   const tabButton = strip.getByRole('button', { name: tabName, exact: true });
   await expect(tabButton).toBeVisible();
   await tabButton.click({ button: 'right' });
-  await expect(page.getByRole('button', { name: 'Rename Tab', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Move Tab After', exact: true })).toBeVisible();
+}
+
+export async function getVaultTabLabels(page: Page): Promise<string[]> {
+  const labels = await page
+    .locator(
+      '[data-testid^="vault-tab-"]:not([data-testid="vault-tab-strip"]):not([data-testid="vault-tab-add"])'
+    )
+    .allTextContents();
+  return labels.map(text => text.trim()).filter(text => text.length > 0 && text !== '+');
+}
+
+export async function moveTabLeft(page: Page, tabName: string) {
+  await openTabContextMenu(page, tabName);
+  const moveLeft = page.getByRole('button', { name: 'Move Left', exact: true });
+  await expect(moveLeft).toBeVisible();
+  const vaultPost = waitForVaultPost(page);
+  await moveLeft.click();
+  await vaultPost;
+}
+
+export async function moveTabRight(page: Page, tabName: string) {
+  await openTabContextMenu(page, tabName);
+  const moveRight = page.getByRole('button', { name: 'Move Right', exact: true });
+  await expect(moveRight).toBeVisible();
+  const vaultPost = waitForVaultPost(page);
+  await moveRight.click();
+  await vaultPost;
+}
+
+export async function moveTabAfter(page: Page, tabName: string, afterTabName: string) {
+  await openTabContextMenu(page, tabName);
+  await page.getByRole('button', { name: 'Move Tab After', exact: true }).click();
+
+  const strip = vaultTabStrip(page);
+  const destinationTab = strip.getByRole('button', { name: afterTabName, exact: true });
+  await expect(destinationTab).toBeVisible();
+
+  const vaultPost = waitForVaultPost(page);
+  await destinationTab.click();
+  await vaultPost;
 }
 
 export async function renameTab(page: Page, tabName: string, newName: string): Promise<string> {

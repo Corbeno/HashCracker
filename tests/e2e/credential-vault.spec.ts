@@ -5,18 +5,22 @@ import {
   selectHashType as selectCrackerHashType,
   startCracking,
 } from './utils/cracker';
+import { gotoCracker } from './utils/navigation';
 import {
   createVaultTab,
   deleteAllE2ETabs,
   editTextCell,
   expectGridReady,
+  getVaultTabLabels,
   gotoVault,
   gridCellByRowIndex,
   gridRowByIndex,
+  moveTabAfter,
+  moveTabLeft,
+  moveTabRight,
   selectRowCheckbox,
   setHashType,
 } from './utils/vault';
-import { gotoCracker } from './utils/navigation';
 
 test.describe('Credential Vault', () => {
   test.beforeEach(async ({ page }) => {
@@ -37,6 +41,48 @@ test.describe('Credential Vault', () => {
     await expect(page.getByPlaceholder('Search all columns...')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Log Import' })).toBeVisible();
     await expect(page.getByRole('button', { name: '+ Add Row' })).toBeVisible();
+  });
+
+  test('keeps Shared first and supports moving tabs', async ({ page }) => {
+    const alpha = `E2E-Alpha-${Date.now()}`;
+    const bravo = `E2E-Bravo-${Date.now()}`;
+    const charlie = `E2E-Charlie-${Date.now()}`;
+
+    await createVaultTab(page, alpha);
+    await createVaultTab(page, bravo);
+    await createVaultTab(page, charlie);
+
+    await expect.poll(async () => (await getVaultTabLabels(page))[0]).toBe('Shared');
+
+    const initialLabels = await getVaultTabLabels(page);
+    const alphaInitialIndex = initialLabels.indexOf(alpha);
+    const bravoInitialIndex = initialLabels.indexOf(bravo);
+    const charlieInitialIndex = initialLabels.indexOf(charlie);
+    expect(alphaInitialIndex).toBeGreaterThanOrEqual(0);
+    expect(bravoInitialIndex).toBeGreaterThan(alphaInitialIndex);
+    expect(charlieInitialIndex).toBeGreaterThan(bravoInitialIndex);
+
+    await moveTabLeft(page, bravo);
+    const movedLeftLabels = await getVaultTabLabels(page);
+    expect(movedLeftLabels.indexOf(bravo)).toBeLessThan(movedLeftLabels.indexOf(alpha));
+
+    await moveTabRight(page, bravo);
+    const movedRightLabels = await getVaultTabLabels(page);
+    expect(movedRightLabels.indexOf(alpha)).toBeLessThan(movedRightLabels.indexOf(bravo));
+
+    await moveTabAfter(page, charlie, alpha);
+    const movedAfterLabels = await getVaultTabLabels(page);
+    const alphaAfterIndex = movedAfterLabels.indexOf(alpha);
+    expect(movedAfterLabels.indexOf(charlie)).toBe(alphaAfterIndex + 1);
+
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Credential Vault' })).toBeVisible();
+    await expect.poll(async () => (await getVaultTabLabels(page))[0]).toBe('Shared');
+
+    const reloadedLabels = await getVaultTabLabels(page);
+    const alphaReloadIndex = reloadedLabels.indexOf(alpha);
+    expect(alphaReloadIndex).toBeGreaterThanOrEqual(0);
+    expect(reloadedLabels.indexOf(charlie)).toBe(alphaReloadIndex + 1);
   });
 
   test('edits a row, sets hash type, auto-appends, and persists after reload', async ({ page }) => {

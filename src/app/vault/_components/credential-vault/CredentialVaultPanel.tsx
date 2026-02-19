@@ -71,6 +71,10 @@ function hasAnyCredentialData(credential: Record<string, unknown>): boolean {
   ].some(value => String(value ?? '').trim() !== '');
 }
 
+function isSharedTabName(name: string): boolean {
+  return name.trim().toLowerCase() === 'shared';
+}
+
 function buildSelectedCredentialClipboardText(credentials: Credential[]): string {
   if (credentials.length === 0) return '';
 
@@ -100,6 +104,8 @@ export default function CredentialVaultPanel() {
     setActiveTab,
     renameTab,
     deleteTab,
+    moveTabAfter,
+    moveTab,
     addCredential,
     updateCredential,
     deleteCredentials,
@@ -112,6 +118,7 @@ export default function CredentialVaultPanel() {
   const [renamingTabId, setRenamingTabId] = useState<string | null>(null);
   const [renameTabName, setRenameTabName] = useState('');
   const [contextMenu, setContextMenu] = useState<{ tabId: string } | null>(null);
+  const [pendingMoveAfterTabId, setPendingMoveAfterTabId] = useState<string | null>(null);
   const [isLogImportModalOpen, setIsLogImportModalOpen] = useState(false);
   const [isCrackSelectedModalOpen, setIsCrackSelectedModalOpen] = useState(false);
   const [selectedAttackMode, setSelectedAttackMode] = useState<string>('rockyou');
@@ -129,6 +136,10 @@ export default function CredentialVaultPanel() {
     [tabs, activeTabId]
   );
   const contextMenuOpen = contextMenu !== null;
+  const pendingMoveAfterTab = useMemo(
+    () => tabs.find(tab => tab.id === pendingMoveAfterTabId) ?? null,
+    [tabs, pendingMoveAfterTabId]
+  );
   const routeTabId = searchParams?.get('tab') ?? null;
   const hashTypeOptions = useMemo<HashTypeOption[]>(
     () =>
@@ -167,12 +178,18 @@ export default function CredentialVaultPanel() {
   const handleSelectTab = useCallback(
     (tabId: string) => {
       if (!tabs.some(tab => tab.id === tabId)) return;
+
+      if (pendingMoveAfterTabId && pendingMoveAfterTabId !== tabId) {
+        moveTabAfter(pendingMoveAfterTabId, tabId);
+        setPendingMoveAfterTabId(null);
+      }
+
       setActiveTab(tabId);
       if (routeTabId !== tabId) {
         setRouteTabParam(tabId);
       }
     },
-    [tabs, setActiveTab, routeTabId, setRouteTabParam]
+    [tabs, pendingMoveAfterTabId, moveTabAfter, setActiveTab, routeTabId, setRouteTabParam]
   );
 
   const { refs, floatingStyles, context } = useFloating({
@@ -285,6 +302,7 @@ export default function CredentialVaultPanel() {
   const handleAddTab = useCallback(() => {
     cancelCreateTabOnBlurRef.current = false;
     setContextMenu(null);
+    setPendingMoveAfterTabId(null);
     setRenamingTabId(null);
     setIsCreatingTab(true);
     setNewTabName('');
@@ -324,9 +342,10 @@ export default function CredentialVaultPanel() {
   const handleStartRenameTab = useCallback(
     (tabId: string) => {
       const tab = tabs.find(nextTab => nextTab.id === tabId);
-      if (!tab) return;
+      if (!tab || isSharedTabName(tab.name)) return;
       cancelRenameTabOnBlurRef.current = false;
       setContextMenu(null);
+      setPendingMoveAfterTabId(null);
       setIsCreatingTab(false);
       setNewTabName('');
       setRenamingTabId(tab.id);
@@ -390,12 +409,29 @@ export default function CredentialVaultPanel() {
   const handleDeleteTab = useCallback(
     (tabId: string) => {
       if (tabs.length <= 1) return;
+      const tab = tabs.find(nextTab => nextTab.id === tabId);
+      if (!tab || isSharedTabName(tab.name)) return;
       setContextMenu(null);
+      setPendingMoveAfterTabId(null);
       setRenamingTabId(null);
       setRenameTabName('');
       deleteTab(tabId);
     },
     [tabs.length, deleteTab]
+  );
+
+  const handleStartMoveTabAfter = useCallback((tabId: string) => {
+    setContextMenu(null);
+    setPendingMoveAfterTabId(tabId);
+  }, []);
+
+  const handleMoveTabDirection = useCallback(
+    (tabId: string, direction: 'left' | 'right') => {
+      setContextMenu(null);
+      setPendingMoveAfterTabId(null);
+      moveTab(tabId, direction);
+    },
+    [moveTab]
   );
 
   const handleCommitHashType = useCallback(
@@ -677,7 +713,7 @@ export default function CredentialVaultPanel() {
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 pb-1">
+      <div className="flex flex-wrap items-center gap-2 pb-1" data-testid="vault-tab-strip">
         {tabs.map(tab => {
           const isActive = tab.id === activeTabId;
           const isRenaming = tab.id === renamingTabId;
@@ -697,6 +733,7 @@ export default function CredentialVaultPanel() {
               key={tab.id}
               onClick={() => handleSelectTab(tab.id)}
               onContextMenu={event => handleOpenTabContextMenu(event, tab.id)}
+              data-testid={`vault-tab-${tab.id}`}
               className={`px-3 py-1.5 rounded-lg text-sm whitespace-nowrap border transition-colors ${
                 isActive
                   ? 'bg-blue-600/80 border-blue-500 text-white'
@@ -723,34 +760,82 @@ export default function CredentialVaultPanel() {
             onClick={handleAddTab}
             className="px-3 py-1.5 rounded-lg text-sm border border-gray-600 text-gray-100 bg-gray-700/50 hover:bg-gray-700 transition-colors"
             aria-label="Add vault tab"
+            data-testid="vault-tab-add"
           >
             +
           </button>
         )}
       </div>
 
-      {contextMenu && (
-        <div
-          ref={refs.setFloating}
-          className="fixed z-50 min-w-36 rounded-lg border border-gray-600 bg-gray-900/95 shadow-xl"
-          style={floatingStyles}
-          {...getFloatingProps()}
-        >
+      {pendingMoveAfterTab && (
+        <div className="flex items-center gap-2 rounded-lg border border-blue-700/50 bg-blue-900/20 px-3 py-2 text-sm text-blue-100">
+          Select the tab that should come before &quot;{pendingMoveAfterTab.name}&quot;.
           <button
-            onClick={() => handleStartRenameTab(contextMenu.tabId)}
-            className="w-full text-left px-3 py-2 text-sm text-gray-100 hover:bg-gray-700/80"
+            onClick={() => setPendingMoveAfterTabId(null)}
+            className="ml-auto rounded-md border border-blue-500/60 px-2 py-1 text-xs text-blue-100 hover:bg-blue-800/30 transition-colors"
           >
-            Rename Tab
-          </button>
-          <button
-            onClick={() => handleDeleteTab(contextMenu.tabId)}
-            disabled={tabs.length <= 1}
-            className="w-full text-left px-3 py-2 text-sm text-red-300 hover:bg-red-900/30 disabled:text-gray-500 disabled:hover:bg-transparent"
-          >
-            Delete Tab
+            Cancel
           </button>
         </div>
       )}
+
+      {contextMenu &&
+        (() => {
+          const contextTab = tabs.find(tab => tab.id === contextMenu.tabId) ?? null;
+          const contextTabIndex = contextTab
+            ? tabs.findIndex(tab => tab.id === contextMenu.tabId)
+            : -1;
+          const isSharedTab = contextTab ? isSharedTabName(contextTab.name) : false;
+          const canMoveLeft = !isSharedTab && contextTabIndex > 1;
+          const canMoveRight =
+            !isSharedTab && contextTabIndex !== -1 && contextTabIndex < tabs.length - 1;
+
+          return (
+            <div
+              ref={refs.setFloating}
+              className="fixed z-50 min-w-40 rounded-lg border border-gray-600 bg-gray-900/95 shadow-xl"
+              style={floatingStyles}
+              {...getFloatingProps()}
+            >
+              <button
+                onClick={() => handleStartMoveTabAfter(contextMenu.tabId)}
+                disabled={isSharedTab}
+                className="w-full text-left px-3 py-2 text-sm text-gray-100 hover:bg-gray-700/80 disabled:text-gray-500 disabled:hover:bg-transparent"
+              >
+                Move Tab After
+              </button>
+              <button
+                onClick={() => handleMoveTabDirection(contextMenu.tabId, 'left')}
+                disabled={!canMoveLeft}
+                className="w-full text-left px-3 py-2 text-sm text-gray-100 hover:bg-gray-700/80 disabled:text-gray-500 disabled:hover:bg-transparent"
+              >
+                Move Left
+              </button>
+              <button
+                onClick={() => handleMoveTabDirection(contextMenu.tabId, 'right')}
+                disabled={!canMoveRight}
+                className="w-full text-left px-3 py-2 text-sm text-gray-100 hover:bg-gray-700/80 disabled:text-gray-500 disabled:hover:bg-transparent"
+              >
+                Move Right
+              </button>
+              <div className="my-1 border-t border-gray-700" />
+              <button
+                onClick={() => handleStartRenameTab(contextMenu.tabId)}
+                disabled={isSharedTab}
+                className="w-full text-left px-3 py-2 text-sm text-gray-100 hover:bg-gray-700/80 disabled:text-gray-500 disabled:hover:bg-transparent"
+              >
+                Rename Tab
+              </button>
+              <button
+                onClick={() => handleDeleteTab(contextMenu.tabId)}
+                disabled={tabs.length <= 1 || isSharedTab}
+                className="w-full text-left px-3 py-2 text-sm text-red-300 hover:bg-red-900/30 disabled:text-gray-500 disabled:hover:bg-transparent"
+              >
+                Delete Tab
+              </button>
+            </div>
+          );
+        })()}
 
       <div className="flex-1 min-h-[300px]" style={{ width: '100%' }}>
         <AgGridReact<Credential>

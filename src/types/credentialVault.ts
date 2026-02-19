@@ -40,6 +40,20 @@ export type CredentialVaultMutation =
       };
     }
   | {
+      type: 'tab.moveAfter';
+      payload: {
+        tabId: string;
+        afterTabId: string;
+      };
+    }
+  | {
+      type: 'tab.move';
+      payload: {
+        tabId: string;
+        direction: 'left' | 'right';
+      };
+    }
+  | {
       type: 'credential.create';
       payload: {
         tabId: string;

@@ -19,6 +19,7 @@ import {
   insertTab,
   renameTabIfChanged,
   tabExists,
+  updateTabPositionIfChanged,
   updateCredentialIfChanged,
   updateCredentialPasswordById,
   withVaultTransaction,
@@ -30,9 +31,6 @@ import {
 } from './credentialVaultMapper';
 import { logger } from './logger';
 
-import { normalizeHashForType } from '@/utils/hashNormalization';
-import { findCrackedHashPassword } from '@/utils/hashVaultStore';
-
 import {
   Credential,
   CredentialField,
@@ -42,6 +40,8 @@ import {
 } from '@/types/credentialVault';
 import type { HashResult } from '@/types/hashResults';
 import { LogImportResult, LogImportType } from '@/types/logImport';
+import { normalizeHashForType } from '@/utils/hashNormalization';
+import { findCrackedHashPassword } from '@/utils/hashVaultStore';
 import { mergeImportedCredentials, normalizeUsername } from '@/utils/logImport/merge';
 import { parseGenericCredentialLog } from '@/utils/logImport/parsers/generic';
 import { parseImpacketNtlmLog } from '@/utils/logImport/parsers/impacketNtlm';
@@ -64,6 +64,32 @@ function makeSharedTab(credentials: Credential[] = []): CredentialVaultTab {
     name: 'Shared',
     credentials,
   };
+}
+
+function isSharedTabName(name: string): boolean {
+  return name.trim().toLowerCase() === 'shared';
+}
+
+function tabOrderWithSharedFirst(tabs: CredentialVaultTab[]): CredentialVaultTab[] {
+  const sharedIndex = tabs.findIndex(tab => isSharedTabName(tab.name));
+  if (sharedIndex <= 0) {
+    return tabs;
+  }
+
+  const [sharedTab] = tabs.splice(sharedIndex, 1);
+  tabs.unshift(sharedTab);
+  return tabs;
+}
+
+function applyTabOrder(tabIds: string[]): number {
+  let changedCount = 0;
+  for (let position = 0; position < tabIds.length; position += 1) {
+    changedCount += updateTabPositionIfChanged({
+      id: tabIds[position],
+      position,
+    });
+  }
+  return changedCount;
 }
 
 function createInitialDocument(): CredentialVaultDocument {
@@ -189,6 +215,7 @@ export function applyCredentialVaultMutation(
   mutation: CredentialVaultMutation
 ): CredentialVaultDocument {
   const current = loadVaultFromDatabase();
+  const currentTabsById = new Map(current.tabs.map(tab => [tab.id, tab]));
   let changed = false;
 
   withVaultTransaction(() => {
@@ -222,13 +249,67 @@ export function applyCredentialVaultMutation(
       case 'tab.rename': {
         const trimmedName = mutation.payload.name.trim();
         if (!trimmedName) return;
+        const targetTab = currentTabsById.get(mutation.payload.tabId);
+        if (!targetTab || isSharedTabName(targetTab.name)) return;
         changed = renameTabIfChanged({ id: mutation.payload.tabId, name: trimmedName }) > 0;
         return;
       }
 
       case 'tab.delete': {
         if (countTabs() <= 1) return;
+        const targetTab = currentTabsById.get(mutation.payload.tabId);
+        if (!targetTab || isSharedTabName(targetTab.name)) return;
         changed = deleteTabById(mutation.payload.tabId) > 0;
+        return;
+      }
+
+      case 'tab.moveAfter': {
+        if (mutation.payload.tabId === mutation.payload.afterTabId) return;
+
+        const movingTab = currentTabsById.get(mutation.payload.tabId);
+        const afterTab = currentTabsById.get(mutation.payload.afterTabId);
+        if (!movingTab || !afterTab || isSharedTabName(movingTab.name)) return;
+
+        const orderedTabs = [...current.tabs];
+        const movingIndex = orderedTabs.findIndex(tab => tab.id === mutation.payload.tabId);
+        const afterIndex = orderedTabs.findIndex(tab => tab.id === mutation.payload.afterTabId);
+        if (movingIndex === -1 || afterIndex === -1) return;
+
+        const [tabToMove] = orderedTabs.splice(movingIndex, 1);
+        const destinationIndex = orderedTabs.findIndex(
+          tab => tab.id === mutation.payload.afterTabId
+        );
+        if (destinationIndex === -1) return;
+        orderedTabs.splice(destinationIndex + 1, 0, tabToMove);
+
+        const finalOrder = tabOrderWithSharedFirst(orderedTabs);
+        changed = applyTabOrder(finalOrder.map(tab => tab.id)) > 0;
+        return;
+      }
+
+      case 'tab.move': {
+        const movingTab = currentTabsById.get(mutation.payload.tabId);
+        if (!movingTab || isSharedTabName(movingTab.name)) return;
+
+        const orderedTabs = [...current.tabs];
+        const movingIndex = orderedTabs.findIndex(tab => tab.id === mutation.payload.tabId);
+        if (movingIndex === -1) return;
+
+        let targetIndex = mutation.payload.direction === 'left' ? movingIndex - 1 : movingIndex + 1;
+
+        if (targetIndex < 0 || targetIndex >= orderedTabs.length) return;
+
+        const sharedIndex = orderedTabs.findIndex(tab => isSharedTabName(tab.name));
+        if (sharedIndex !== -1 && targetIndex === sharedIndex) {
+          targetIndex = mutation.payload.direction === 'left' ? sharedIndex + 1 : sharedIndex - 1;
+          if (targetIndex < 0 || targetIndex >= orderedTabs.length) return;
+        }
+
+        const [tabToMove] = orderedTabs.splice(movingIndex, 1);
+        orderedTabs.splice(targetIndex, 0, tabToMove);
+
+        const finalOrder = tabOrderWithSharedFirst(orderedTabs);
+        changed = applyTabOrder(finalOrder.map(tab => tab.id)) > 0;
         return;
       }
 

@@ -56,6 +56,11 @@ interface RenameTabParams {
   name: string;
 }
 
+interface TabPositionParams {
+  id: string;
+  position: number;
+}
+
 interface DeleteTabParams {
   id: string;
 }
@@ -250,6 +255,19 @@ export function renameTabIfChanged(params: RenameTabParams): number {
       getDatabase()
         .prepare<RenameTabParams>(
           'UPDATE vault_tabs SET name = @name WHERE id = @id AND name <> @name'
+        )
+        .run(params).changes,
+    params
+  );
+}
+
+export function updateTabPositionIfChanged(params: TabPositionParams): number {
+  return withVaultSql(
+    'tabs.updatePositionIfChanged',
+    () =>
+      getDatabase()
+        .prepare<TabPositionParams>(
+          'UPDATE vault_tabs SET position = @position WHERE id = @id AND position <> @position'
         )
         .run(params).changes,
     params
