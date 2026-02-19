@@ -6,6 +6,7 @@ import { gotoCracker } from './utils/navigation';
 import {
   cancelJob,
   crackedHashesTbody,
+  hashInput,
   openJobDetails,
   selectAttackMode,
   selectHashType,
@@ -219,5 +220,28 @@ test.describe('Hashing Flow', () => {
 
     // Input should now have the job's hash
     await expect(page.locator('#hash-input')).toHaveValue(uncrackedHash);
+  });
+
+  test('should persist cracking form choices across page refresh', async ({ page }) => {
+    const storageKey = 'hash-cracker:cracker-form-state';
+    const draftInput = ['persisted-hash-a', 'persisted-hash-b'].join('\n');
+
+    await page.evaluate(key => window.localStorage.removeItem(key), storageKey);
+    await page.reload();
+    await expect(hashInput(page)).toBeVisible();
+
+    await hashInput(page).fill(draftInput);
+    await selectHashType(page, 1000);
+    await selectAttackMode(page, 'all six chars');
+
+    await expect(page.getByTestId('hash-type-dropdown-trigger')).toHaveValue('1000 - NTLM');
+    await expect(page.getByTestId('attack-mode-dropdown-trigger')).toHaveValue('All Six Chars');
+
+    await page.reload();
+    await expect(hashInput(page)).toHaveValue(draftInput);
+    await expect(page.getByTestId('hash-type-dropdown-trigger')).toHaveValue('1000 - NTLM');
+    await expect(page.getByTestId('attack-mode-dropdown-trigger')).toHaveValue('All Six Chars');
+
+    await page.evaluate(key => window.localStorage.removeItem(key), storageKey);
   });
 });

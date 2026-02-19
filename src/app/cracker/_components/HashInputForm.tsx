@@ -1,12 +1,20 @@
 'use client';
 
 import Image from 'next/image';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 import useCrackSubmit from '../_hooks/useCrackSubmit';
 
 import SearchableDropdown, { DropdownOption } from '@/components/ui/searchable-dropdown';
 import config from '@/config';
+
+const CRACKER_FORM_STORAGE_KEY = 'hash-cracker:cracker-form-state';
+
+interface PersistedCrackerFormState {
+  hashInput: string;
+  hashType: number;
+  attackMode: string;
+}
 
 interface HashInputFormProps {
   hashInput: string;
@@ -29,6 +37,55 @@ export default function HashInputForm({
 }: HashInputFormProps) {
   const [attackMode, setAttackMode] = useState<string>('smart');
   const { error, submit } = useCrackSubmit({ onCrackingStart });
+  const hasRestoredFromStorageRef = useRef(false);
+
+  useEffect(() => {
+    if (!hasRestoredFromStorageRef.current) {
+      return;
+    }
+
+    const state: PersistedCrackerFormState = {
+      hashInput,
+      hashType,
+      attackMode,
+    };
+
+    try {
+      window.localStorage.setItem(CRACKER_FORM_STORAGE_KEY, JSON.stringify(state));
+    } catch {
+      // Ignore storage write failures.
+    }
+  }, [hashInput, hashType, attackMode]);
+
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(CRACKER_FORM_STORAGE_KEY);
+      if (!raw) return;
+
+      const parsed = JSON.parse(raw) as Partial<PersistedCrackerFormState>;
+
+      if (typeof parsed.hashInput === 'string') {
+        setHashInput(parsed.hashInput);
+      }
+
+      if (typeof parsed.hashType === 'number' && Number.isFinite(parsed.hashType)) {
+        setHashType(parsed.hashType);
+      }
+
+      if (
+        typeof parsed.attackMode === 'string' &&
+        Object.prototype.hasOwnProperty.call(config.hashcat.attackModes, parsed.attackMode)
+      ) {
+        setAttackMode(parsed.attackMode);
+      }
+    } catch {
+      // Ignore malformed local data.
+    } finally {
+      queueMicrotask(() => {
+        hasRestoredFromStorageRef.current = true;
+      });
+    }
+  }, [setHashInput, setHashType]);
 
   const handleAttackModeChange = (option: DropdownOption) => {
     setAttackMode(option.id as string);
