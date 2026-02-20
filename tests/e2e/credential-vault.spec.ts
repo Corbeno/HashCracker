@@ -4,6 +4,7 @@ import {
   crackedHashesTbody,
   selectHashType as selectCrackerHashType,
   startCracking,
+  waitForJobVisible,
 } from './utils/cracker';
 import { gotoCracker } from './utils/navigation';
 import {
@@ -146,6 +147,63 @@ test.describe('Credential Vault', () => {
     await page.getByRole('button', { name: 'Delete Selected' }).click();
     await expect(page.getByText('1 selected')).toBeHidden();
     await expect(page.locator('.ag-center-cols-container')).not.toContainText(marker);
+  });
+
+  test('queues selected vault rows as grouped crack jobs', async ({ page }) => {
+    const firstHash = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+    const secondHash = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';
+
+    await editTextCell(page, 0, 'username', `queue-one-${Date.now()}`);
+    await editTextCell(page, 0, 'hash', firstHash);
+    await setHashType(page, 0, 0);
+
+    await expect(gridRowByIndex(page, 1)).toBeVisible();
+    await editTextCell(page, 1, 'username', `queue-two-${Date.now()}`);
+    await editTextCell(page, 1, 'hash', secondHash);
+    await setHashType(page, 1, 0);
+
+    await selectRowCheckbox(page, 0);
+    await selectRowCheckbox(page, 1);
+
+    await page.getByRole('button', { name: 'Crack Selected' }).click();
+    await expect(page.getByRole('heading', { name: 'Queue Crack Jobs' })).toBeVisible();
+    await expect(
+      page.getByText(/Jobs:\s*1\s*\|\s*Rows:\s*2\s*\|\s*Unique hashes:\s*2/)
+    ).toBeVisible();
+
+    const crackRequestPromise = page.waitForRequest(
+      request => request.url().includes('/api/crack') && request.method() === 'POST',
+      { timeout: 15000 }
+    );
+    const crackResponsePromise = page.waitForResponse(
+      response => response.url().includes('/api/crack') && response.request().method() === 'POST',
+      { timeout: 15000 }
+    );
+
+    await page.getByRole('button', { name: 'Queue Jobs' }).click();
+
+    const crackRequest = await crackRequestPromise;
+    const crackResponse = await crackResponsePromise;
+    const payload = crackRequest.postDataJSON() as {
+      hashes: string[];
+      mode: string;
+      type: number;
+    };
+
+    expect(payload.mode).toBe('rockyou');
+    expect(payload.type).toBe(0);
+    expect([...payload.hashes].sort()).toEqual([firstHash, secondHash].sort());
+    expect(crackResponse.ok()).toBeTruthy();
+
+    await expect(
+      page.getByText('Queued 1 job. Open Hash Cracker to monitor progress.')
+    ).toBeVisible();
+
+    await gotoCracker(page);
+    const queuedJobCard = await waitForJobVisible(page, firstHash);
+    await expect(queuedJobCard).toContainText(secondHash);
+    await expect(queuedJobCard.getByText('Type: MD5')).toBeVisible();
+    await expect(queuedJobCard.getByText('Mode: RockYou')).toBeVisible();
   });
 
   test('copies only selected rows from the floating action bar', async ({ page }) => {

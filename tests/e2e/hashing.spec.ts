@@ -24,6 +24,14 @@ test.describe('Hashing Flow', () => {
     await expect(page.getByText('Please enter at least one hash')).toBeVisible();
   });
 
+  test('should open and close plaintext modal', async ({ page }) => {
+    await page.getByTestId('open-cracked-pairs').click();
+    await expect(page.getByTestId('cracked-pairs-modal')).toBeVisible();
+
+    await page.getByTestId('cracked-pairs-close').click();
+    await expect(page.getByTestId('cracked-pairs-modal')).toBeHidden();
+  });
+
   test('should submit hash for cracking', async ({ page }) => {
     // Fill input with a known MD5 hash (password = "password")
     const hash = '5f4dcc3b5aa765d61d8327deb882cf99';
@@ -186,6 +194,24 @@ test.describe('Hashing Flow', () => {
         .filter({ hasText: `${hash}->password` })
         .first()
     ).toBeVisible();
+  });
+
+  test('should show cracked hash/password pairs in plaintext modal', async ({ page }) => {
+    const hash = '5f4dcc3b5aa765d61d8327deb882cf99';
+    await startCracking(page, hash);
+
+    await expect(crackedHashesTbody(page).getByRole('cell', { name: hash })).toBeVisible({
+      timeout: 60000,
+    });
+
+    await page.getByTestId('open-cracked-pairs').click();
+    await expect(page.getByTestId('cracked-pairs-modal')).toBeVisible();
+    await expect(page.getByTestId('cracked-pairs-content')).toHaveValue(
+      new RegExp(`${hash} -> password`),
+      {
+        timeout: 10000,
+      }
+    );
   });
 
   test('should show newest cracked hash at the top', async ({ page }) => {
