@@ -155,6 +155,83 @@ test.describe('Credential Vault', () => {
     await expect(page.locator('.ag-center-cols-container')).not.toContainText(marker);
   });
 
+  test('moves selected rows to Shared and skips exact duplicates', async ({ page }) => {
+    const marker = `move-to-shared-${Date.now()}`;
+    const password = 'move-pass';
+    const hashOne = '11111111111111111111111111111111';
+    const hashTwo = '22222222222222222222222222222222';
+
+    await editTextCell(page, 0, 'username', marker);
+    await editTextCell(page, 0, 'password', password);
+    await editTextCell(page, 0, 'hash', hashOne);
+    await setHashType(page, 0, 0);
+    await expect(gridRowByIndex(page, 1)).toBeVisible();
+
+    await selectRowCheckbox(page, 0);
+    const moveToSharedButton = page.getByRole('button', { name: 'Move to Shared', exact: true });
+    await expect(moveToSharedButton).toBeVisible();
+
+    let vaultPost = page.waitForResponse(
+      response =>
+        response.url().includes('/api/credential-vault') && response.request().method() === 'POST',
+      { timeout: 15000 }
+    );
+    await moveToSharedButton.click();
+    await vaultPost;
+
+    await expect(page.locator('.ag-center-cols-container')).not.toContainText(hashOne);
+
+    // Exact duplicate in Shared should be skipped (row stays in current tab).
+    await editTextCell(page, 0, 'username', marker);
+    await editTextCell(page, 0, 'password', password);
+    await editTextCell(page, 0, 'hash', hashOne);
+    await setHashType(page, 0, 0);
+    await selectRowCheckbox(page, 0);
+    await expect(page.getByText('1 selected')).toBeVisible();
+    await expect(moveToSharedButton).toBeVisible();
+
+    vaultPost = page.waitForResponse(
+      response =>
+        response.url().includes('/api/credential-vault') && response.request().method() === 'POST',
+      { timeout: 15000 }
+    );
+    await moveToSharedButton.click();
+    await vaultPost;
+
+    await expect(page.locator('.ag-center-cols-container')).toContainText(hashOne);
+
+    // Any difference should move as a new Shared row.
+    await editTextCell(page, 0, 'hash', hashTwo);
+    const rowCheckboxInput = gridRowByIndex(page, 0).locator('input[type="checkbox"]').first();
+    if (await rowCheckboxInput.count()) {
+      if (await rowCheckboxInput.isChecked()) {
+        await rowCheckboxInput.uncheck();
+      }
+      await rowCheckboxInput.check();
+    } else {
+      await selectRowCheckbox(page, 0);
+    }
+    await expect(page.getByText('1 selected')).toBeVisible();
+    await expect(moveToSharedButton).toBeVisible();
+
+    vaultPost = page.waitForResponse(
+      response =>
+        response.url().includes('/api/credential-vault') && response.request().method() === 'POST',
+      { timeout: 15000 }
+    );
+    await moveToSharedButton.click();
+    await vaultPost;
+
+    await expect(page.locator('.ag-center-cols-container')).not.toContainText(hashTwo);
+
+    await page.getByRole('button', { name: 'Shared', exact: true }).click();
+    await expect(page.locator('.ag-center-cols-container')).toContainText(hashOne);
+    await expect(page.locator('.ag-center-cols-container')).toContainText(hashTwo);
+
+    await selectRowCheckbox(page, 0);
+    await expect(moveToSharedButton).toBeHidden();
+  });
+
   test('queues selected vault rows as grouped crack jobs', async ({ page }) => {
     const firstHash = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
     const secondHash = 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb';

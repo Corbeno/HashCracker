@@ -75,4 +75,11 @@ export type CredentialVaultMutation =
         tabId: string;
         credentialIds: string[];
       };
+    }
+  | {
+      type: 'credential.moveToShared';
+      payload: {
+        tabId: string;
+        credentialIds: string[];
+      };
     };

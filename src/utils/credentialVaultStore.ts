@@ -385,6 +385,71 @@ export function applyCredentialVaultMutation(
         return;
       }
 
+      case 'credential.moveToShared': {
+        if (mutation.payload.credentialIds.length === 0) return;
+
+        const sourceTab = currentTabsById.get(mutation.payload.tabId);
+        if (!sourceTab || isSharedTabName(sourceTab.name)) return;
+
+        const sharedTab = current.tabs.find(tab => isSharedTabName(tab.name));
+        if (!sharedTab || sharedTab.id === mutation.payload.tabId) return;
+
+        const sourceCredentials = getCredentialsForTab(mutation.payload.tabId);
+        const sourceCredentialIds = new Set(sourceCredentials.map(credential => credential.id));
+        const requestedIds = new Set(
+          mutation.payload.credentialIds.filter(credentialId =>
+            sourceCredentialIds.has(credentialId)
+          )
+        );
+        if (requestedIds.size === 0) return;
+
+        const movingCredentials = sourceCredentials.filter(credential =>
+          requestedIds.has(credential.id)
+        );
+        if (movingCredentials.length === 0) return;
+
+        const sharedCredentials = getCredentialsForTab(sharedTab.id);
+        const makeCredentialSignature = (credential: {
+          username: string;
+          password: string;
+          hash: string;
+          hash_type: number | null;
+        }): string => {
+          const hashType = normalizeHashTypeValue(credential.hash_type);
+          return `${credential.username}\u001f${credential.password}\u001f${credential.hash}\u001f${hashType ?? 'null'}`;
+        };
+        const sharedSignatures = new Set(
+          sharedCredentials.map(credential => makeCredentialSignature(credential))
+        );
+
+        let destinationPosition = getMaxCredentialPositionForTab(sharedTab.id);
+        let movedCount = 0;
+        for (const credential of movingCredentials) {
+          const signature = makeCredentialSignature(credential);
+          if (sharedSignatures.has(signature)) {
+            continue;
+          }
+
+          deleteCredentialInTab(mutation.payload.tabId, credential.id);
+          destinationPosition += 1;
+          insertCredential({
+            id: credential.id,
+            tabId: sharedTab.id,
+            username: credential.username,
+            password: credential.password,
+            hash: credential.hash,
+            hashType: normalizeHashTypeValue(credential.hash_type),
+            notes: credential.notes,
+            position: destinationPosition,
+          });
+          sharedSignatures.add(signature);
+          movedCount += 1;
+        }
+
+        changed = movedCount > 0;
+        return;
+      }
+
       default:
         return;
     }

@@ -109,6 +109,7 @@ export default function CredentialVaultPanel() {
     addCredential,
     updateCredential,
     deleteCredentials,
+    moveCredentialsToShared,
     logImport,
   } = useCredentialVault();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -137,6 +138,7 @@ export default function CredentialVaultPanel() {
     () => tabs.find(tab => tab.id === activeTabId) ?? tabs[0],
     [tabs, activeTabId]
   );
+  const isActiveTabShared = activeTab ? isSharedTabName(activeTab.name) : false;
   const contextMenuOpen = contextMenu !== null;
   const pendingMoveAfterTab = useMemo(
     () => tabs.find(tab => tab.id === pendingMoveAfterTabId) ?? null,
@@ -617,6 +619,12 @@ export default function CredentialVaultPanel() {
     setSelectedIds(new Set());
   }, [activeTab, selectedIds, deleteCredentials]);
 
+  const handleMoveSelectedToShared = useCallback(() => {
+    if (!activeTab || selectedIds.size === 0 || isSharedTabName(activeTab.name)) return;
+    moveCredentialsToShared(activeTab.id, Array.from(selectedIds));
+    setSelectedIds(new Set());
+  }, [activeTab, selectedIds, moveCredentialsToShared]);
+
   const handleCopySelected = useCallback(async () => {
     if (!activeTab || selectedIds.size === 0) return;
 
@@ -926,6 +934,14 @@ export default function CredentialVaultPanel() {
             >
               Delete Selected
             </button>
+            {!isActiveTabShared && (
+              <button
+                onClick={handleMoveSelectedToShared}
+                className="bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-1.5 rounded-lg text-sm transition-colors"
+              >
+                Move to Shared
+              </button>
+            )}
             <div className="relative group">
               <button
                 onClick={handleOpenCrackSelectedModal}

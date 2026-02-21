@@ -243,6 +243,20 @@ export default function useCredentialVault() {
     [mutateVault]
   );
 
+  const moveCredentialsToShared = useCallback(
+    (tabId: string, ids: string[]) => {
+      if (ids.length === 0) return;
+      void mutateVault({
+        type: 'credential.moveToShared',
+        payload: {
+          tabId,
+          credentialIds: ids,
+        },
+      });
+    },
+    [mutateVault]
+  );
+
   const logImport = useCallback(
     async (
       tabId: string,
@@ -285,6 +299,7 @@ export default function useCredentialVault() {
     addCredential,
     updateCredential,
     deleteCredentials,
+    moveCredentialsToShared,
     logImport,
   };
 }
