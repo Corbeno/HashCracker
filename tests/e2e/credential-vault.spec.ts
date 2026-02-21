@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 
 import {
   crackedHashesTbody,
+  selectAttackMode,
   selectHashType as selectCrackerHashType,
   startCracking,
   waitForJobVisible,
@@ -11,6 +12,8 @@ import {
   createVaultTab,
   deleteAllE2ETabs,
   editTextCell,
+  expectQueueCrackJobsModalOpen,
+  expectQueueCrackJobsSummary,
   expectGridReady,
   getVaultTabLabels,
   gotoVault,
@@ -19,6 +22,8 @@ import {
   moveTabAfter,
   moveTabLeft,
   moveTabRight,
+  queueCrackJobsAndWait,
+  selectQueueCrackAttackMode,
   selectRowCheckbox,
   setHashType,
 } from './utils/vault';
@@ -120,6 +125,7 @@ test.describe('Credential Vault', () => {
 
     await gotoCracker(page);
     await selectCrackerHashType(page, 0);
+    await selectAttackMode(page, 'rockyou');
     await startCracking(page, hash);
     await expect(crackedHashesTbody(page)).toContainText(hash, { timeout: 60000 });
     await expect(crackedHashesTbody(page)).toContainText('password', { timeout: 60000 });
@@ -166,34 +172,15 @@ test.describe('Credential Vault', () => {
     await selectRowCheckbox(page, 1);
 
     await page.getByRole('button', { name: 'Crack Selected' }).click();
-    await expect(page.getByRole('heading', { name: 'Queue Crack Jobs' })).toBeVisible();
-    await expect(
-      page.getByText(/Jobs:\s*1\s*\|\s*Rows:\s*2\s*\|\s*Unique hashes:\s*2/)
-    ).toBeVisible();
-
-    const crackRequestPromise = page.waitForRequest(
-      request => request.url().includes('/api/crack') && request.method() === 'POST',
-      { timeout: 15000 }
-    );
-    const crackResponsePromise = page.waitForResponse(
-      response => response.url().includes('/api/crack') && response.request().method() === 'POST',
-      { timeout: 15000 }
-    );
-
-    await page.getByRole('button', { name: 'Queue Jobs' }).click();
-
-    const crackRequest = await crackRequestPromise;
-    const crackResponse = await crackResponsePromise;
-    const payload = crackRequest.postDataJSON() as {
-      hashes: string[];
-      mode: string;
-      type: number;
-    };
+    await expectQueueCrackJobsModalOpen(page);
+    await expectQueueCrackJobsSummary(page, { jobs: 1, rows: 2, uniqueHashes: 2 });
+    await selectQueueCrackAttackMode(page, 'rockyou', /RockYou/i);
+    const { payload, response } = await queueCrackJobsAndWait(page);
 
     expect(payload.mode).toBe('rockyou');
     expect(payload.type).toBe(0);
     expect([...payload.hashes].sort()).toEqual([firstHash, secondHash].sort());
-    expect(crackResponse.ok()).toBeTruthy();
+    expect(response.ok()).toBeTruthy();
 
     await expect(
       page.getByText('Queued 1 job. Open Hash Cracker to monitor progress.')

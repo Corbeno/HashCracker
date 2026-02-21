@@ -1,4 +1,4 @@
-import { expect, Locator, Page } from '@playwright/test';
+import { expect, Locator, Page, Request, Response } from '@playwright/test';
 
 function uniqueName(prefix: string): string {
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -233,4 +233,64 @@ export async function selectRowCheckbox(page: Page, rowIndex: number) {
     .first();
   await expect(checkboxWrapper).toBeVisible();
   await checkboxWrapper.click();
+}
+
+export async function expectQueueCrackJobsModalOpen(page: Page) {
+  await expect(page.getByRole('heading', { name: 'Queue Crack Jobs' })).toBeVisible();
+}
+
+export async function expectQueueCrackJobsSummary(
+  page: Page,
+  values: { jobs: number; rows: number; uniqueHashes: number }
+) {
+  await expect(
+    page.getByText(
+      new RegExp(
+        `Jobs:\\s*${values.jobs}\\s*\\|\\s*Rows:\\s*${values.rows}\\s*\\|\\s*Unique hashes:\\s*${values.uniqueHashes}`
+      )
+    )
+  ).toBeVisible();
+}
+
+export function queueCrackAttackModeTrigger(page: Page): Locator {
+  return page
+    .locator('label', { hasText: 'Attack Mode (applies to all jobs)' })
+    .locator('xpath=following-sibling::div//input[@data-searchable-dropdown-trigger="true"]');
+}
+
+export async function selectQueueCrackAttackMode(page: Page, modeId: string, displayName: RegExp) {
+  const trigger = queueCrackAttackModeTrigger(page);
+  await trigger.click();
+  await page.locator('input[data-searchable-dropdown-search="true"]:visible').fill(modeId);
+  await page.locator(`#dropdown-option-${modeId}`).click();
+  await expect(trigger).toHaveValue(displayName);
+}
+
+export interface QueueCrackRequestPayload {
+  hashes: string[];
+  mode: string;
+  type: number;
+}
+
+export async function queueCrackJobsAndWait(page: Page): Promise<{
+  payload: QueueCrackRequestPayload;
+  request: Request;
+  response: Response;
+}> {
+  const crackRequestPromise = page.waitForRequest(
+    request => request.url().includes('/api/crack') && request.method() === 'POST',
+    { timeout: 15000 }
+  );
+  const crackResponsePromise = page.waitForResponse(
+    response => response.url().includes('/api/crack') && response.request().method() === 'POST',
+    { timeout: 15000 }
+  );
+
+  await page.getByRole('button', { name: 'Queue Jobs' }).click();
+
+  const request = await crackRequestPromise;
+  const response = await crackResponsePromise;
+  const payload = request.postDataJSON() as QueueCrackRequestPayload;
+
+  return { payload, request, response };
 }

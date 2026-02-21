@@ -9,6 +9,7 @@ import {
   hashInput,
   openJobDetails,
   selectAttackMode,
+  selectAttackModeById,
   selectHashType,
   startCracking,
   waitForJobVisible,
@@ -17,6 +18,7 @@ import {
 test.describe('Hashing Flow', () => {
   test.beforeEach(async ({ page }) => {
     await gotoCracker(page);
+    await selectAttackMode(page, 'rockyou');
   });
 
   test('should validate empty input', async ({ page }) => {
@@ -42,26 +44,6 @@ test.describe('Hashing Flow', () => {
 
     // Job should appear in Active Jobs panel
     await waitForJobVisible(page, hash);
-  });
-
-  test('should queue three jobs in Smart mode', async ({ page }) => {
-    const firstHash = randomHex();
-    const secondHash = randomHex();
-
-    await selectHashType(page, 0);
-    await selectAttackMode(page, 'smart');
-    await startCracking(page, [firstHash, secondHash]);
-
-    const superJobs = page.getByTestId('job-card').filter({ hasText: firstHash });
-    await expect(superJobs).toHaveCount(3, { timeout: 15000 });
-
-    await expect(superJobs.filter({ hasText: 'Mode: TSI' })).toHaveCount(1);
-    await expect(superJobs.filter({ hasText: 'One Rule To Rule Them Still' })).toHaveCount(1);
-    await expect(
-      superJobs
-        .filter({ hasText: 'Mode: RockYou' })
-        .filter({ hasNotText: 'One Rule To Rule Them Still' })
-    ).toHaveCount(1);
   });
 
   test('should crack a simple MD5 hash', async ({ page }) => {
@@ -163,13 +145,13 @@ test.describe('Hashing Flow', () => {
   });
 
   test('should select different attack mode', async ({ page }) => {
-    // Select attack mode dropdown (rockyou is default; just verify selection works)
-    await selectAttackMode(page, 'rockyou');
+    await selectAttackModeById(page, 'tsi');
 
     // Submit hash
     const hash = '5f4dcc3b5aa765d61d8327deb882cf99';
     await startCracking(page, hash);
-    await waitForJobVisible(page, hash);
+    const jobCard = await waitForJobVisible(page, hash);
+    await expect(jobCard.getByText('Mode: TSI')).toBeVisible({ timeout: 10000 });
   });
 
   test('should highlight cracked hashes in job panel', async ({ page }) => {
@@ -258,15 +240,15 @@ test.describe('Hashing Flow', () => {
 
     await hashInput(page).fill(draftInput);
     await selectHashType(page, 1000);
-    await selectAttackMode(page, 'all six chars');
+    await selectAttackModeById(page, 'tsi');
 
     await expect(page.getByTestId('hash-type-dropdown-trigger')).toHaveValue('1000 - NTLM');
-    await expect(page.getByTestId('attack-mode-dropdown-trigger')).toHaveValue('All Six Chars');
+    await expect(page.getByTestId('attack-mode-dropdown-trigger')).toHaveValue('TSI');
 
     await page.reload();
     await expect(hashInput(page)).toHaveValue(draftInput);
     await expect(page.getByTestId('hash-type-dropdown-trigger')).toHaveValue('1000 - NTLM');
-    await expect(page.getByTestId('attack-mode-dropdown-trigger')).toHaveValue('All Six Chars');
+    await expect(page.getByTestId('attack-mode-dropdown-trigger')).toHaveValue('TSI');
 
     await page.evaluate(key => window.localStorage.removeItem(key), storageKey);
   });

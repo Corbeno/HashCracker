@@ -36,6 +36,12 @@ export async function selectAttackMode(page: Page, searchTerm: string) {
   await page.getByRole('option').first().click();
 }
 
+export async function selectAttackModeById(page: Page, modeId: string) {
+  await page.getByTestId(dropdownTriggerTestId('attack-mode-dropdown')).click();
+  await page.getByTestId(dropdownSearchTestId('attack-mode-dropdown')).fill(modeId);
+  await page.locator(`#dropdown-option-${modeId}`).click();
+}
+
 export function activeJobsPanel(page: Page) {
   return page.getByTestId('active-jobs-panel');
 }
