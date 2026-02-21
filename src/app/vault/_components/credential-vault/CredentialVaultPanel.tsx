@@ -126,9 +126,11 @@ export default function CredentialVaultPanel() {
   const [queueCrackJobsError, setQueueCrackJobsError] = useState<string | null>(null);
   const [queueCrackJobsStatus, setQueueCrackJobsStatus] = useState<string | null>(null);
   const [copySelectedStatus, setCopySelectedStatus] = useState<string | null>(null);
+  const [isGridLoading, setIsGridLoading] = useState(true);
   const gridApiRef = useRef<GridApi<Credential> | null>(null);
   const pendingNewRowId = useRef<string | null>(null);
   const pendingAutoAppendFromRowId = useRef<string | null>(null);
+  const pendingRouteTabSyncId = useRef<string | null>(null);
   const cancelCreateTabOnBlurRef = useRef(false);
   const cancelRenameTabOnBlurRef = useRef(false);
   const activeTab = useMemo(
@@ -175,6 +177,28 @@ export default function CredentialVaultPanel() {
     [pathname, router, searchParams]
   );
 
+  const switchTab = useCallback(
+    (tabId: string) => {
+      if (!tabs.some(tab => tab.id === tabId)) return;
+
+      if (tabId === activeTabId) {
+        if (pendingRouteTabSyncId.current === tabId) {
+          pendingRouteTabSyncId.current = null;
+        }
+        return;
+      }
+
+      setIsGridLoading(true);
+      setActiveTab(tabId);
+
+      if (routeTabId !== tabId) {
+        pendingRouteTabSyncId.current = tabId;
+        setRouteTabParam(tabId);
+      }
+    },
+    [tabs, activeTabId, setActiveTab, routeTabId, setRouteTabParam]
+  );
+
   const handleSelectTab = useCallback(
     (tabId: string) => {
       if (!tabs.some(tab => tab.id === tabId)) return;
@@ -184,12 +208,9 @@ export default function CredentialVaultPanel() {
         setPendingMoveAfterTabId(null);
       }
 
-      setActiveTab(tabId);
-      if (routeTabId !== tabId) {
-        setRouteTabParam(tabId);
-      }
+      switchTab(tabId);
     },
-    [tabs, pendingMoveAfterTabId, moveTabAfter, setActiveTab, routeTabId, setRouteTabParam]
+    [tabs, pendingMoveAfterTabId, moveTabAfter, switchTab]
   );
 
   const { refs, floatingStyles, context } = useFloating({
@@ -249,7 +270,7 @@ export default function CredentialVaultPanel() {
     persistGridStateSnapshot(gridApiRef.current);
   }, []);
 
-  // After credentials updates, if there's a pending new row, scroll to it and start editing
+  // When a pending row is created, scroll it into view and focus username editing.
   useEffect(() => {
     if (!pendingNewRowId.current || !gridApiRef.current) return;
     const api = gridApiRef.current;
@@ -267,23 +288,38 @@ export default function CredentialVaultPanel() {
     }, 0);
   }, [activeTab?.credentials]);
 
+  // Clear the auto-append guard once credential list length updates.
   useEffect(() => {
     if (!pendingAutoAppendFromRowId.current) return;
     pendingAutoAppendFromRowId.current = null;
   }, [activeTab?.credentials.length]);
 
+  // Reset row selection and filters when switching active tabs.
   useEffect(() => {
     setSelectedIds(new Set());
     setQuickFilterText('');
     pendingNewRowId.current = null;
   }, [activeTabId]);
 
+  // Sync the active tab from route changes, while avoiding stale route bounce-backs.
   useEffect(() => {
     if (!routeTabId || !tabs.some(tab => tab.id === routeTabId)) return;
-    if (routeTabId === activeTabId) return;
-    setActiveTab(routeTabId);
-  }, [routeTabId, activeTabId, tabs, setActiveTab]);
+    if (pendingRouteTabSyncId.current && pendingRouteTabSyncId.current === activeTabId) {
+      return;
+    }
+    switchTab(routeTabId);
+  }, [routeTabId, activeTabId, tabs, switchTab]);
 
+  // Drive AG Grid loading overlay until the active tab data is fully resolved.
+  useEffect(() => {
+    if (tabs.length === 0 || !activeTab || activeTab.id !== activeTabId) {
+      setIsGridLoading(true);
+      return;
+    }
+    setIsGridLoading(false);
+  }, [tabs.length, activeTab, activeTabId]);
+
+  // Ensure the URL always contains a valid tab id after initial load and tab changes.
   useEffect(() => {
     if (!activeTabId) return;
     const hasValidRouteTab = !!routeTabId && tabs.some(tab => tab.id === routeTabId);
@@ -604,6 +640,7 @@ export default function CredentialVaultPanel() {
     }
   }, [activeTab, selectedIds]);
 
+  // Auto-dismiss copy status toast shortly after it appears.
   useEffect(() => {
     if (!copySelectedStatus) return;
 
@@ -840,6 +877,7 @@ export default function CredentialVaultPanel() {
       <div className="flex-1 min-h-[300px]" style={{ width: '100%' }}>
         <AgGridReact<Credential>
           rowData={activeTab?.credentials ?? []}
+          loading={isGridLoading}
           defaultColDef={defaultColDef}
           columnDefs={columnDefs}
           getRowId={params => params.data.id}
