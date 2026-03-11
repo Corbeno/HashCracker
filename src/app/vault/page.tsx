@@ -4,6 +4,7 @@ import CredentialVaultPanel from '@/app/vault/_components/credential-vault/Crede
 import AppHeader from '@/components/app-shell/AppHeader';
 import TabBar from '@/components/app-shell/TabBar';
 import { useConnection } from '@/contexts/ConnectionContext';
+import { Suspense } from 'react';
 
 const APP_TABS = [
   { label: 'Hash Cracker', href: '/cracker' },
@@ -26,7 +27,9 @@ export default function VaultPage() {
       </div>
 
       <div className="container mx-auto mt-8 max-w-[1800px] h-[calc(100vh-240px)] min-h-[500px]">
-        <CredentialVaultPanel />
+        <Suspense fallback={<div className="text-sm text-gray-300">Loading vault...</div>}>
+          <CredentialVaultPanel />
+        </Suspense>
       </div>
     </main>
   );
