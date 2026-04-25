@@ -10,6 +10,13 @@ export async function gotoVault(page: Page) {
   await page.goto('/vault');
   await expect(page.getByRole('heading', { name: 'Credential Vault' })).toBeVisible();
   await expect(page.getByRole('button', { name: '+ Add Row' })).toBeVisible();
+
+  const labels = await getVaultTabLabels(page);
+  const e2eTabs = labels.filter(label => label.startsWith('E2E-'));
+  const preferredTab = e2eTabs.at(-1);
+  if (preferredTab) {
+    await page.getByRole('button', { name: preferredTab, exact: true }).click();
+  }
 }
 
 function waitForVaultPost(page: Page) {

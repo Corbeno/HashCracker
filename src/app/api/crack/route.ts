@@ -6,14 +6,13 @@ import config from '@/config';
 import { isHashTypeCaseSensitive } from '@/config/hashTypes';
 import { HashJob, jobQueue } from '@/utils/jobQueue';
 import { logger } from '@/utils/logger';
+import { SMART_ATTACK_MODE_SEQUENCE } from '@/utils/smartAttack';
 
 export interface CrackRequest {
   hashes: string[];
   type: number;
   mode: string;
 }
-
-const SUPER_ATTACK_MODE_SEQUENCE = ['tsi', 'rockyou', 'one-rule-to-rule-them-still'] as const;
 
 export async function POST(req: NextRequest) {
   try {
@@ -39,7 +38,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (mode === 'smart') {
-      const resolvedModes = SUPER_ATTACK_MODE_SEQUENCE.map(
+      const resolvedModes = SMART_ATTACK_MODE_SEQUENCE.map(
         modeId => config.hashcat.attackModes[modeId]
       );
       if (resolvedModes.some(nextMode => !nextMode)) {

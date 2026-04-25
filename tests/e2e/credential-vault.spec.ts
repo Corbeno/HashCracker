@@ -122,6 +122,7 @@ test.describe('Credential Vault', () => {
   }) => {
     const hash = '5f4dcc3b5aa765d61d8327deb882cf99';
     const username = `vault-autofill-${Date.now()}`;
+    const tabName = `E2E-Autofill-${Date.now()}`;
 
     await gotoCracker(page);
     await selectCrackerHashType(page, 0);
@@ -131,6 +132,7 @@ test.describe('Credential Vault', () => {
     await expect(crackedHashesTbody(page)).toContainText('password', { timeout: 60000 });
 
     await gotoVault(page);
+    await createVaultTab(page, tabName);
     await expectGridReady(page);
 
     await editTextCell(page, 0, 'username', username);
@@ -527,12 +529,20 @@ test.describe('Credential Vault', () => {
 
     await page.getByRole('button', { name: 'Close' }).click();
 
-    await expect(page.locator('.ag-center-cols-container')).toContainText(sharedUsername);
-    await expect(page.locator('.ag-center-cols-container')).toContainText(conflictingHash);
+    const sourceRow = page
+      .locator('.ag-center-cols-container .ag-row')
+      .filter({ hasText: sharedUsername })
+      .first();
+    await expect(sourceRow).toContainText(sharedUsername);
+    await expect(sourceRow).toContainText(conflictingHash);
 
     await page.getByRole('button', { name: 'Shared', exact: true }).click();
-    await expect(page.locator('.ag-center-cols-container')).toContainText(sharedUsername);
-    await expect(page.locator('.ag-center-cols-container')).toContainText(sharedHash);
-    await expect(page.locator('.ag-center-cols-container')).not.toContainText(conflictingHash);
+    const sharedRow = page
+      .locator('.ag-center-cols-container .ag-row')
+      .filter({ hasText: sharedUsername })
+      .first();
+    await expect(sharedRow).toContainText(sharedUsername);
+    await expect(sharedRow).toContainText(sharedHash);
+    await expect(sharedRow).not.toContainText(conflictingHash);
   });
 });

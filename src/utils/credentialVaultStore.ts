@@ -348,7 +348,8 @@ export function applyCredentialVaultMutation(
         if (
           (mutation.payload.field === 'hash' || mutation.payload.field === 'hashType') &&
           nextCredential.hashType != null &&
-          nextCredential.hash.trim() !== ''
+          nextCredential.hash.trim() !== '' &&
+          nextCredential.password.trim() === ''
         ) {
           const crackedPassword = findCrackedHashPassword(
             nextCredential.hashType,
