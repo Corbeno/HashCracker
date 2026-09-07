@@ -4,6 +4,7 @@ import { promisify } from 'util';
 import si from 'systeminformation';
 
 import { logger } from './logger';
+
 import { EMPTY_SYSTEM_INFO, SystemInfo } from '@/types/systemInfo';
 
 // NOTE: Most of this file is hardcoded to my system. This needs a better way, but works for now
@@ -49,6 +50,7 @@ declare global {
   var __systemInfoCache__: {
     cachedSystemInfo: SystemInfo | null;
     updateIntervalId: NodeJS.Timeout | null;
+    updatePromise: Promise<void> | null;
   };
 }
 
@@ -57,6 +59,7 @@ if (!global.__systemInfoCache__) {
   global.__systemInfoCache__ = {
     cachedSystemInfo: null,
     updateIntervalId: null,
+    updatePromise: null,
   };
 }
 
@@ -109,14 +112,23 @@ async function fetchSystemInfo(): Promise<SystemInfo | null> {
  * Updates the cached system information
  */
 async function updateCachedSystemInfo(): Promise<void> {
-  try {
-    const freshInfo = await fetchSystemInfo();
-    if (freshInfo) {
-      global.__systemInfoCache__.cachedSystemInfo = freshInfo;
-    }
-  } catch (error) {
-    logger.error('Error updating cached system info:', error);
+  if (global.__systemInfoCache__.updatePromise) {
+    return global.__systemInfoCache__.updatePromise;
   }
+
+  global.__systemInfoCache__.updatePromise = (async () => {
+    try {
+      const freshInfo = await fetchSystemInfo();
+      if (freshInfo) {
+        global.__systemInfoCache__.cachedSystemInfo = freshInfo;
+      }
+    } catch (error) {
+      logger.error('Error updating cached system info:', error);
+    } finally {
+      global.__systemInfoCache__.updatePromise = null;
+    }
+  })();
+  return global.__systemInfoCache__.updatePromise;
 }
 
 /**
@@ -136,19 +148,12 @@ export function initSystemInfoCache(updateInterval: number): void {
     global.__systemInfoCache__ = {
       cachedSystemInfo: null,
       updateIntervalId: null,
+      updatePromise: null,
     };
   }
 
   // Update the cache immediately
-  fetchSystemInfo()
-    .then(initialInfo => {
-      if (initialInfo) {
-        global.__systemInfoCache__.cachedSystemInfo = initialInfo;
-      }
-    })
-    .catch(error => {
-      logger.error('Error during initial system info fetch:', error);
-    });
+  void updateCachedSystemInfo();
 
   // Set up the interval to update the cache
   global.__systemInfoCache__.updateIntervalId = setInterval(updateCachedSystemInfo, updateInterval);
@@ -164,27 +169,17 @@ export async function getSystemInfo(): Promise<SystemInfo> {
     global.__systemInfoCache__ = {
       cachedSystemInfo: null,
       updateIntervalId: null,
+      updatePromise: null,
     };
   }
 
-  // If we have cached data, return it
   if (global.__systemInfoCache__.cachedSystemInfo) {
     return global.__systemInfoCache__.cachedSystemInfo;
   }
 
-  // If no cache, try to fetch fresh data
-  try {
-    const freshData = await fetchSystemInfo();
-    if (freshData) {
-      global.__systemInfoCache__.cachedSystemInfo = freshData;
-      return freshData;
-    }
-  } catch (error) {
-    logger.error('Error fetching fresh system info:', error);
-  }
-
-  // Return empty data if all else fails
-  return EMPTY_SYSTEM_INFO;
+  // Share the in-flight refresh rather than launching duplicate system probes.
+  await updateCachedSystemInfo();
+  return global.__systemInfoCache__.cachedSystemInfo ?? EMPTY_SYSTEM_INFO;
 }
 
 /**

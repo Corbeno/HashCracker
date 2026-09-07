@@ -8,8 +8,6 @@ import {
   HashTypeOption,
 } from '../_components/yoink/types';
 
-import { compareHashes } from '@/utils/clientHashUtils';
-
 let lastSelectedHashType: number | null = null;
 
 interface UseYoinkHashesResult {
@@ -37,7 +35,6 @@ export default function useYoinkHashes(isOpen: boolean): UseYoinkHashesResult {
   const [isLoadingHashTypes, setIsLoadingHashTypes] = useState(false);
   const [extractionResult, setExtractionResult] = useState<ExtractionResult>({});
   const [crackedHashes, setCrackedHashes] = useState<Record<string, CrackedHashData>>({});
-  const [displayHashes, setDisplayHashes] = useState<DisplayHash[]>([]);
 
   const setSelectedHashType = useCallback((value: number) => {
     setSelectedHashTypeState(value);
@@ -62,18 +59,18 @@ export default function useYoinkHashes(isOpen: boolean): UseYoinkHashesResult {
       }));
 
       setHashTypeOptions(options);
-
-      if (selectedHashType === null && lastSelectedHashType === null && options.length > 0) {
-        setSelectedHashType(options[0].id as number);
-      } else if (selectedHashType === null && lastSelectedHashType !== null) {
-        setSelectedHashType(lastSelectedHashType);
-      }
+      setSelectedHashTypeState(current => {
+        if (current !== null) return current;
+        const next = lastSelectedHashType ?? (options[0]?.id as number | undefined) ?? null;
+        lastSelectedHashType = next;
+        return next;
+      });
     } catch (error) {
       console.error('Error fetching hash types with regex:', error);
     } finally {
       setIsLoadingHashTypes(false);
     }
-  }, [selectedHashType, setSelectedHashType]);
+  }, []);
 
   const fetchCrackedHashes = useCallback(async (hashType: number | null) => {
     if (hashType === null) {
@@ -95,8 +92,12 @@ export default function useYoinkHashes(isOpen: boolean): UseYoinkHashesResult {
   useEffect(() => {
     if (!isOpen) return;
     void fetchHashTypesWithRegex();
+  }, [fetchHashTypesWithRegex, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) return;
     void fetchCrackedHashes(selectedHashType);
-  }, [fetchCrackedHashes, fetchHashTypesWithRegex, isOpen, selectedHashType]);
+  }, [fetchCrackedHashes, isOpen, selectedHashType]);
 
   const debouncedFetchHashes = useMemo(
     () =>
@@ -151,40 +152,23 @@ export default function useYoinkHashes(isOpen: boolean): UseYoinkHashesResult {
     };
   }, [debouncedFetchHashes, inputText, selectedHashType]);
 
-  useEffect(() => {
-    if (!outputText) {
-      setDisplayHashes([]);
-      return;
-    }
+  const displayHashes = useMemo<DisplayHash[]>(() => {
+    if (!outputText) return [];
 
-    const hashes = outputText.split('\n').filter(hash => hash.trim() !== '');
-    const nextDisplayHashes: DisplayHash[] = hashes.map(hash => {
-      let password: string | undefined;
-      let isCaseSensitive = false;
+    const entries = Object.entries(crackedHashes);
+    const isCaseSensitive = entries[0]?.[1].isCaseSensitive ?? false;
+    const crackedByHash = new Map(
+      entries.map(([hash, data]) => [isCaseSensitive ? hash : hash.toLowerCase(), data.password])
+    );
 
-      if (crackedHashes[hash]) {
-        password = crackedHashes[hash].password;
-        isCaseSensitive = crackedHashes[hash].isCaseSensitive;
-      } else {
-        const matchedEntry = Object.entries(crackedHashes).find(([crackedHash, data]) => {
-          return compareHashes(crackedHash, hash, data.isCaseSensitive);
-        });
-
-        if (matchedEntry) {
-          const data = matchedEntry[1];
-          password = data.password;
-          isCaseSensitive = data.isCaseSensitive;
-        }
-      }
-
-      return {
+    return outputText
+      .split('\n')
+      .filter(hash => hash.trim() !== '')
+      .map(hash => ({
         hash,
-        password,
+        password: crackedByHash.get(isCaseSensitive ? hash : hash.toLowerCase()),
         isCaseSensitive,
-      };
-    });
-
-    setDisplayHashes(nextDisplayHashes);
+      }));
   }, [crackedHashes, outputText]);
 
   const clearInput = useCallback(() => {

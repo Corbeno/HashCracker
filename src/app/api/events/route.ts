@@ -1,22 +1,17 @@
 import crypto from 'crypto';
-import fs, { watch } from 'fs';
-import path from 'path';
 
 import { NextRequest } from 'next/server';
 
 import config from '@/config/config';
-import { readPotfile } from '@/utils/hashUtils';
 import { logger } from '@/utils/logger';
 import { sendEventToAll, SSEClient } from '@/utils/miscUtils';
 import { getSystemInfo, initSystemInfoCache } from '@/utils/systemInfoCache';
 
-if (!global.eventClients) {
-  global.eventClients = new Set<SSEClient>();
-}
+function ensureEventInfrastructure(): void {
+  if (!global.eventClients) {
+    global.eventClients = new Set<SSEClient>();
+  }
 
-// Setup system info interval if not already done
-if (!global.systemInfoInterval) {
-  // Make sure the system info cache is initialized
   if (!global.__systemInfoCache__?.updateIntervalId) {
     logger.info(
       `Initializing system info cache from events route with ${config.hashcat.statusTimer} second interval`
@@ -24,45 +19,22 @@ if (!global.systemInfoInterval) {
     initSystemInfoCache(config.hashcat.statusTimer * 1000);
   }
 
-  global.systemInfoInterval = setInterval(async () => {
-    if (global.eventClients.size === 0) {
-      return;
-    }
+  if (!global.systemInfoInterval) {
+    global.systemInfoInterval = setInterval(async () => {
+      if (global.eventClients.size === 0) return;
 
-    try {
-      // Get system info from the cache
-      const systemInfo = await getSystemInfo();
-
-      if (systemInfo) {
+      try {
+        const systemInfo = await getSystemInfo();
         sendEventToAll('systemInfo', { data: systemInfo });
+      } catch (error) {
+        logger.error('Error sending system info event:', error);
       }
-    } catch (error) {
-      logger.error('Error sending system info event:', error);
-    }
-  }, config.hashcat.statusTimer * 1000);
-}
-
-// Setup file watcher for potfile updates
-const potfilePath =
-  config.hashcat.potfilePath || path.join(config.hashcat.dirs.hashes, 'hashcat.potfile');
-if (!global.fileWatcher && fs.existsSync(path.dirname(potfilePath))) {
-  global.fileWatcher = watch(path.dirname(potfilePath), async (eventType, filename) => {
-    if (global.eventClients.size === 0) {
-      return;
-    }
-    try {
-      if (filename === path.basename(potfilePath) && eventType === 'change') {
-        logger.debug('Potfile changed, sending update to clients');
-        const content = await readPotfile();
-        sendEventToAll('potfileUpdate', { content });
-      }
-    } catch (error) {
-      logger.error('Error in file watcher:', error);
-    }
-  });
+    }, config.hashcat.statusTimer * 1000);
+  }
 }
 
 export async function GET(_req: NextRequest) {
+  ensureEventInfrastructure();
   // Store a reference to the client's controller that we can use in the cancel method
   let clientController: ReadableStreamDefaultController | null = null;
   let clientId: string | null = null;

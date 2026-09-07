@@ -2,14 +2,14 @@
 
 import Image from 'next/image';
 
-import { useConnection } from '@/contexts/ConnectionContext';
+import { useSystemInfo } from '@/contexts/ConnectionContext';
 
 interface SystemInfoPanelProps {
   className?: string;
 }
 
 export default function SystemInfoPanel({ className = '' }: SystemInfoPanelProps) {
-  const { systemInfo } = useConnection();
+  const systemInfo = useSystemInfo();
 
   // Format bytes to a human-readable format
   const formatBytes = (bytes: number): string => {

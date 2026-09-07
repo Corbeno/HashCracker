@@ -91,6 +91,23 @@ test.describe('Yoink Modal', () => {
     await expect(yoinkOutput(page).getByText('21232f297a57a5a743894a0e4a801fc3')).toBeVisible();
   });
 
+  test('should identify a known cracked hash regardless of MD5 letter casing', async ({ page }) => {
+    const hash = '5f4dcc3b5aa765d61d8327deb882cf99';
+    const uppercaseHash = hash.toUpperCase();
+    const crackResponse = await page.request.post('/api/open/crack', {
+      data: { hashes: [hash], hashType: 0 },
+    });
+    expect(crackResponse.ok()).toBeTruthy();
+
+    await openYoink(page);
+    await expect(page.getByText('Loading hash types...')).not.toBeVisible({ timeout: 10000 });
+    await selectYoinkHashType(page, 0);
+    await setYoinkInput(page, `Recovered candidate: ${uppercaseHash}`);
+
+    await expect(yoinkOutput(page)).toContainText(uppercaseHash, { timeout: 10000 });
+    await expect(yoinkOutput(page)).toContainText('password');
+  });
+
   test('should use extracted hashes in main form', async ({ page }) => {
     await openYoink(page);
     await expect(page.getByText('Loading hash types...')).not.toBeVisible({ timeout: 10000 });

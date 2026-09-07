@@ -1,8 +1,5 @@
 import { expect, test } from '@playwright/test';
 
-import { randomHex } from './utils/random';
-
-import { gotoCracker } from './utils/navigation';
 import {
   cancelJob,
   crackedHashesTbody,
@@ -14,6 +11,8 @@ import {
   startCracking,
   waitForJobVisible,
 } from './utils/cracker';
+import { gotoCracker } from './utils/navigation';
+import { randomHex } from './utils/random';
 
 test.describe('Hashing Flow', () => {
   test.beforeEach(async ({ page }) => {
@@ -211,6 +210,45 @@ test.describe('Hashing Flow', () => {
     });
 
     await expect(crackedHashesTbody(page).locator('tr').first()).toContainText(secondHash);
+  });
+
+  test('should copy a job as displayed, including cracked passwords', async ({ page }) => {
+    const crackedHash = '5f4dcc3b5aa765d61d8327deb882cf99';
+    const uncrackedHash = randomHex();
+
+    // Ensure the known hash is available in the cracked vault before creating the mixed job.
+    const crackResponse = await page.request.post('/api/open/crack', {
+      data: { hashes: [crackedHash], hashType: 0 },
+    });
+    expect(crackResponse.ok()).toBeTruthy();
+    await expect(crackedHashesTbody(page).getByRole('cell', { name: crackedHash })).toBeVisible({
+      timeout: 10000,
+    });
+
+    await startCracking(page, [crackedHash, uncrackedHash]);
+    const jobCard = await waitForJobVisible(page, uncrackedHash);
+
+    await page.evaluate(() => {
+      let copiedText = '';
+      Object.defineProperty(window, '__e2eCopiedJobText', {
+        configurable: true,
+        get: () => copiedText,
+      });
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: {
+          writeText: async (text: string) => {
+            copiedText = text;
+          },
+        },
+      });
+    });
+
+    await jobCard.getByTestId('job-copy').click();
+    const copiedText = await page.evaluate(
+      () => (window as { __e2eCopiedJobText?: string }).__e2eCopiedJobText
+    );
+    expect(copiedText).toBe(`${crackedHash}->password\n${uncrackedHash}`);
   });
 
   test('should copy job hashes to input', async ({ page }) => {

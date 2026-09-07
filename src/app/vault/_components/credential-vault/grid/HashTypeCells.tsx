@@ -9,6 +9,8 @@ export interface HashTypeOption extends DropdownOption {
   name: string;
 }
 
+const PRIORITIZED_HASH_TYPE_IDS = [1000];
+
 export const HashTypeDropdownCellEditor = forwardRef<
   { getValue: () => number | null },
   ICellEditorParams<Credential, number | null> & {
@@ -84,7 +86,7 @@ export const HashTypeDropdownCellEditor = forwardRef<
         defaultOpen
         renderInPortal
         portalClassName="ag-custom-component-popup"
-        prioritizedOptionIds={[1000]}
+        prioritizedOptionIds={PRIORITIZED_HASH_TYPE_IDS}
       />
       {selectedValue !== null && (
         <button

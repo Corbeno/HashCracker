@@ -14,6 +14,22 @@ test.describe('Potfile Modal', () => {
     await closePotfile(page);
   });
 
+  test('should fetch potfile contents only when the modal is opened', async ({ page }) => {
+    let potfileRequestCount = 0;
+    page.on('request', request => {
+      if (new URL(request.url()).pathname === '/api/potfile') {
+        potfileRequestCount += 1;
+      }
+    });
+
+    await page.reload();
+    await expect(page.getByTestId('open-potfile')).toBeVisible();
+    expect(potfileRequestCount).toBe(0);
+
+    await openPotfile(page);
+    await expect.poll(() => potfileRequestCount).toBeGreaterThan(0);
+  });
+
   test('should display potfile contents', async ({ page }) => {
     await openPotfile(page);
 

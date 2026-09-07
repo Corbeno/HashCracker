@@ -21,20 +21,18 @@ export interface ConnectionContextValue {
   connectedStatus: ConnectionStatus;
   jobs: Job[];
   crackedHashes: HashVaultEntry[];
-  potfileContent: string;
-  systemInfo: SystemInfo;
   fetchInitialState: () => Promise<void>;
   toggleLiveViewing: () => void;
   liveViewingEnabled: boolean;
 }
 
 const ConnectionContext = createContext<ConnectionContextValue | null>(null);
+const SystemInfoContext = createContext<SystemInfo>(EMPTY_SYSTEM_INFO);
 
 export function ConnectionProvider({ children }: { children: ReactNode }) {
   const [connectedStatus, setConnectedStatus] = useState<ConnectionStatus>('disconnected');
   const [jobs, setJobs] = useState<Job[]>([]);
   const [crackedHashes, setCrackedHashes] = useState<HashVaultEntry[]>([]);
-  const [potfileContent, setPotfileContent] = useState('');
   const [systemInfo, setSystemInfo] = useState<SystemInfo>(EMPTY_SYSTEM_INFO);
   const [liveViewingEnabled, setLiveViewingEnabled] = useState(true);
 
@@ -74,10 +72,6 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
 
       if (state.crackedHashes) {
         setCrackedHashes(state.crackedHashes);
-      }
-
-      if (state.potfileContent !== undefined) {
-        setPotfileContent(String(state.potfileContent ?? ''));
       }
 
       if (state.systemInfo) {
@@ -132,17 +126,6 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
           setCrackedHashes(data.hashes);
         } catch (error) {
           console.error('Error parsing crackedHashes event data:', error);
-        }
-      });
-
-      eventSource.addEventListener('potfileUpdate', e => {
-        try {
-          const data = JSON.parse(e.data);
-          if (data.content !== undefined) {
-            setPotfileContent(String(data.content ?? ''));
-          }
-        } catch (error) {
-          console.error('Error parsing potfileUpdate event data:', error);
         }
       });
 
@@ -207,25 +190,22 @@ export function ConnectionProvider({ children }: { children: ReactNode }) {
       connectedStatus,
       jobs,
       crackedHashes,
-      potfileContent,
-      systemInfo,
       fetchInitialState,
       toggleLiveViewing,
       liveViewingEnabled,
     }),
-    [
-      connectedStatus,
-      crackedHashes,
-      fetchInitialState,
-      jobs,
-      liveViewingEnabled,
-      potfileContent,
-      systemInfo,
-      toggleLiveViewing,
-    ]
+    [connectedStatus, crackedHashes, fetchInitialState, jobs, liveViewingEnabled, toggleLiveViewing]
   );
 
-  return <ConnectionContext.Provider value={value}>{children}</ConnectionContext.Provider>;
+  return (
+    <ConnectionContext.Provider value={value}>
+      <SystemInfoContext.Provider value={systemInfo}>{children}</SystemInfoContext.Provider>
+    </ConnectionContext.Provider>
+  );
+}
+
+export function useSystemInfo(): SystemInfo {
+  return useContext(SystemInfoContext);
 }
 
 export function useConnection(): ConnectionContextValue {

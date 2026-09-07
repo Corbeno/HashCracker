@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, useEffect, useRef, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { DropdownOption } from './types';
@@ -24,6 +24,7 @@ interface SearchableDropdownProps {
   testId?: string;
 }
 
+const EMPTY_ARRAY: Array<string | number> = [];
 export default function SearchableDropdown({
   options,
   value,
@@ -39,7 +40,7 @@ export default function SearchableDropdown({
   defaultOpen = false,
   renderInPortal = true,
   portalClassName = '',
-  prioritizedOptionIds = [],
+  prioritizedOptionIds = EMPTY_ARRAY,
   testId,
 }: SearchableDropdownProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen && !disabled);
@@ -55,48 +56,31 @@ export default function SearchableDropdown({
   const searchInputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Default filter function if not provided
-  const defaultFilterOptions = (options: DropdownOption[], term: string) => {
-    if (!term) return options;
+  const filteredOptions = useMemo(() => {
+    const filtered = getFilteredOptions
+      ? getFilteredOptions(options, searchTerm)
+      : !searchTerm
+        ? options
+        : options.filter(option => {
+            const searchLower = searchTerm.toLowerCase();
+            return (
+              option.name.toLowerCase().includes(searchLower) ||
+              String(option.id).toLowerCase().includes(searchLower) ||
+              option.description?.toLowerCase().includes(searchLower)
+            );
+          });
 
-    const searchLower = term.toLowerCase();
-    return options.filter(
-      option =>
-        option.name.toLowerCase().includes(searchLower) ||
-        option.id.toString().toLowerCase().includes(searchLower) ||
-        (option.description && option.description.toLowerCase().includes(searchLower))
-    );
-  };
+    if (prioritizedOptionIds.length === 0) return filtered;
 
-  // Use custom filter function if provided, otherwise use default
-  const filterFunction = getFilteredOptions || defaultFilterOptions;
-
-  const prioritizeOptions = (list: DropdownOption[]) => {
-    if (prioritizedOptionIds.length === 0) return list;
-
-    const normalizedPriority = new Set(prioritizedOptionIds.map(id => String(id)));
+    const priorityById = new Map(prioritizedOptionIds.map((id, index) => [String(id), index]));
     const prioritized: DropdownOption[] = [];
     const remaining: DropdownOption[] = [];
-
-    for (const option of list) {
-      if (normalizedPriority.has(String(option.id))) {
-        prioritized.push(option);
-      } else {
-        remaining.push(option);
-      }
+    for (const option of filtered) {
+      (priorityById.has(String(option.id)) ? prioritized : remaining).push(option);
     }
-
-    prioritized.sort(
-      (a, b) =>
-        prioritizedOptionIds.findIndex(id => String(id) === String(a.id)) -
-        prioritizedOptionIds.findIndex(id => String(id) === String(b.id))
-    );
-
+    prioritized.sort((a, b) => priorityById.get(String(a.id))! - priorityById.get(String(b.id))!);
     return [...prioritized, ...remaining];
-  };
-
-  // Filter options based on search term
-  const filteredOptions = prioritizeOptions(filterFunction(options, searchTerm));
+  }, [getFilteredOptions, options, prioritizedOptionIds, searchTerm]);
 
   // Find the selected option
   const selectedOption = options.find(option => option.id === value);

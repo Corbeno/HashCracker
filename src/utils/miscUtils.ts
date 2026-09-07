@@ -1,5 +1,3 @@
-import fs from 'fs';
-
 import { jobQueue } from './jobQueue';
 import { logger } from './logger';
 
@@ -13,7 +11,6 @@ export interface SSEClient {
 declare global {
   var eventClients: Set<SSEClient>;
   var systemInfoInterval: NodeJS.Timeout | undefined;
-  var fileWatcher: fs.FSWatcher | undefined;
 }
 
 export function sendEventToAll(event: string, data: any) {

@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import JobHashList from './active-jobs/JobHashList';
 import { getStatusColor, getStatusText } from './active-jobs/status';
@@ -30,20 +30,26 @@ export default function ActiveJobsPanel({
   copyNonCrackedHashesToInput,
 }: ActiveJobsPanelProps) {
   const [error, setError] = useState<string | null>(null);
+  const crackedByType = useMemo(() => {
+    const byType = new Map<number, Map<string, string>>();
+    for (const entry of crackedHashes) {
+      const key = normalizeHashForType(entry.hashType, entry.hash);
+      if (!key) continue;
+      let byHash = byType.get(entry.hashType);
+      if (!byHash) {
+        byHash = new Map<string, string>();
+        byType.set(entry.hashType, byHash);
+      }
+      if (!byHash.has(key)) byHash.set(key, entry.password);
+    }
+    return byType;
+  }, [crackedHashes]);
 
   const copyJobText = async (job: Job) => {
-    const crackedByHash = new Map<string, string>();
-    for (const entry of crackedHashes) {
-      if (entry.hashType !== job.type.id) continue;
-      const key = normalizeHashForType(job.type.id, entry.hash);
-      if (key && !crackedByHash.has(key)) {
-        crackedByHash.set(key, entry.password);
-      }
-    }
-
+    const crackedByHash = crackedByType.get(job.type.id);
     const text = job.hashes
       .map(hash => {
-        const password = crackedByHash.get(normalizeHashForType(job.type.id, hash));
+        const password = crackedByHash?.get(normalizeHashForType(job.type.id, hash));
         return password == null ? hash : `${hash}->${password}`;
       })
       .join('\n');
@@ -174,7 +180,7 @@ export default function ActiveJobsPanel({
             <JobHashList
               jobId={job.id}
               hashes={job.hashes}
-              crackedHashes={crackedHashes}
+              crackedByHash={crackedByType.get(job.type.id)}
               hashTypeId={job.type.id}
             />
 

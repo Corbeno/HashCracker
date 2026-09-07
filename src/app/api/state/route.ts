@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import config from '@/config/config';
-import { readPotfile } from '@/utils/hashUtils';
 import { readHashVault } from '@/utils/hashVaultStore';
 import { jobQueue } from '@/utils/jobQueue';
 import { logger } from '@/utils/logger';
@@ -10,18 +9,17 @@ import { getSystemInfo, initSystemInfoCache } from '@/utils/systemInfoCache';
 export const dynamic = 'force-dynamic';
 export const preferredRegion = 'auto';
 
-// Initialize the system info cache
-// This will start updating the cache as soon as the server starts
-// Only initialize if not already done
-if (!global.__systemInfoCache__?.updateIntervalId) {
-  logger.info(`Initializing system info cache with ${config.hashcat.statusTimer} second interval`);
-  initSystemInfoCache(config.hashcat.statusTimer * 1000);
-}
-
 export async function GET(_req: NextRequest) {
   try {
+    if (!global.__systemInfoCache__?.updateIntervalId) {
+      logger.info(
+        `Initializing system info cache with ${config.hashcat.statusTimer} second interval`
+      );
+      initSystemInfoCache(config.hashcat.statusTimer * 1000);
+    }
+
     // Run all data fetching operations in parallel
-    const [jobs, crackedHashes, potfileContent, systemInfo] = await Promise.all([
+    const [jobs, crackedHashes, systemInfo] = await Promise.all([
       // 1. Get job history
       Promise.resolve(
         Array.from(jobQueue.getJobs()).map(job => ({
@@ -34,10 +32,7 @@ export async function GET(_req: NextRequest) {
       // 2. Get cracked hashes
       Promise.resolve(readHashVault()),
 
-      // 3. Get potfile content
-      readPotfile(),
-
-      // 4. Get system info from cache
+      // 3. Get system info from cache
       getSystemInfo(),
     ]);
 
@@ -45,7 +40,6 @@ export async function GET(_req: NextRequest) {
     const state = {
       jobs,
       crackedHashes,
-      potfileContent,
       systemInfo,
     };
 
