@@ -84,7 +84,7 @@ function buildSelectedCredentialClipboardText(credentials: Credential[]): string
       const password = credential.password?.trim() || '(empty)';
       const hash = credential.hash?.trim() || '(empty)';
 
-      return [username, password, hash].join('\t\t');
+      return [username, password, hash].join(':');
     })
     .join('\n');
 }

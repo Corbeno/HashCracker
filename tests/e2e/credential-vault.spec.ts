@@ -321,7 +321,7 @@ test.describe('Credential Vault', () => {
     const copiedText = await page.evaluate(
       () => (window as { __e2eCopiedText?: string }).__e2eCopiedText
     );
-    expect(copiedText).toBe(`${rowTwo.username}\t\t${rowTwo.password}\t\t${rowTwo.hash}`);
+    expect(copiedText).toBe(`${rowTwo.username}:${rowTwo.password}:${rowTwo.hash}`);
     expect(copiedText).not.toContain(rowOne.username);
 
     await selectRowCheckbox(page, 0);
@@ -333,8 +333,8 @@ test.describe('Credential Vault', () => {
       () => (window as { __e2eCopiedText?: string }).__e2eCopiedText
     );
     const expectedTwoRows = [
-      `${rowTwo.username}\t\t${rowTwo.password}\t\t${rowTwo.hash}`,
-      `${rowOne.username}\t\t${rowOne.password}\t\t${rowOne.hash}`,
+      `${rowTwo.username}:${rowTwo.password}:${rowTwo.hash}`,
+      `${rowOne.username}:${rowOne.password}:${rowOne.hash}`,
     ].join('\n');
     expect(copiedTwoRows).toBe(expectedTwoRows);
     expect(copiedTwoRows?.split('\n')).toHaveLength(2);
