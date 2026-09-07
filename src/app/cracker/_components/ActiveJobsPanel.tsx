@@ -10,6 +10,7 @@ import JobProgressBar from './JobProgressBar';
 
 import { HashVaultEntry } from '@/types/hashVault';
 import { Job } from '@/types/job';
+import { normalizeHashForType } from '@/utils/hashNormalization';
 
 interface ActiveJobsPanelProps {
   jobs: Job[];
@@ -29,6 +30,31 @@ export default function ActiveJobsPanel({
   copyNonCrackedHashesToInput,
 }: ActiveJobsPanelProps) {
   const [error, setError] = useState<string | null>(null);
+
+  const copyJobText = async (job: Job) => {
+    const crackedByHash = new Map<string, string>();
+    for (const entry of crackedHashes) {
+      if (entry.hashType !== job.type.id) continue;
+      const key = normalizeHashForType(job.type.id, entry.hash);
+      if (key && !crackedByHash.has(key)) {
+        crackedByHash.set(key, entry.password);
+      }
+    }
+
+    const text = job.hashes
+      .map(hash => {
+        const password = crackedByHash.get(normalizeHashForType(job.type.id, hash));
+        return password == null ? hash : `${hash}->${password}`;
+      })
+      .join('\n');
+
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (error) {
+      console.error('Error copying job:', error);
+      setError('Failed to copy job. See console for details.');
+    }
+  };
 
   const handleCancelJob = async (jobId: string) => {
     try {
@@ -102,6 +128,28 @@ export default function ActiveJobsPanel({
                     width={16}
                     height={16}
                   />
+                </button>
+                <button
+                  onClick={() => void copyJobText(job)}
+                  className="text-gray-400 hover:text-white transition-colors p-1.5 rounded-md hover:bg-gray-700/50"
+                  title="Copy job hashes"
+                  aria-label="Copy job hashes"
+                  data-testid="job-copy"
+                >
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 24 24"
+                    width="16"
+                    height="16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect width="14" height="14" x="8" y="8" rx="2" />
+                    <path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" />
+                  </svg>
                 </button>
               </div>
               <div className="flex flex-wrap gap-2 text-xs">
