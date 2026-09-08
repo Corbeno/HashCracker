@@ -46,6 +46,20 @@ test.describe('Hashing Flow', () => {
     await waitForJobVisible(page, hash);
   });
 
+  test('should display an optional title with the submitted job', async ({ page }) => {
+    const hash = randomHex();
+    const title = 'Acme domain hashes';
+
+    await page.getByTestId('add-job-title').click();
+    await expect(page.getByTestId('job-title-input')).toBeFocused();
+    await page.getByTestId('job-title-input').fill(title);
+    await startCracking(page, hash);
+
+    const jobCard = await waitForJobVisible(page, hash);
+    await expect(jobCard.getByTestId('job-title')).toHaveText(title);
+    await expect(page.getByTestId('job-title-input')).toHaveCount(0);
+  });
+
   test('should immediately complete a job when every hash is already cracked', async ({ page }) => {
     const hash = '5f4dcc3b5aa765d61d8327deb882cf99';
     await crackHashesViaApi(page.request, [hash]);
@@ -312,11 +326,14 @@ test.describe('Hashing Flow', () => {
   test('should persist cracking form choices across page refresh', async ({ page }) => {
     const storageKey = 'hash-cracker:cracker-form-state';
     const draftInput = ['persisted-hash-a', 'persisted-hash-b'].join('\n');
+    const draftTitle = 'Persisted job title';
 
     await page.evaluate(key => window.localStorage.removeItem(key), storageKey);
     await page.reload();
     await expect(hashInput(page)).toBeVisible();
 
+    await page.getByTestId('add-job-title').click();
+    await page.getByTestId('job-title-input').fill(draftTitle);
     await hashInput(page).fill(draftInput);
     await selectHashType(page, 1000);
     await selectAttackModeById(page, 'tsi');
@@ -325,6 +342,7 @@ test.describe('Hashing Flow', () => {
     await expect(page.getByTestId('attack-mode-dropdown-trigger')).toHaveValue('TSI');
 
     await page.reload();
+    await expect(page.getByTestId('job-title-input')).toHaveValue(draftTitle);
     await expect(hashInput(page)).toHaveValue(draftInput);
     await expect(page.getByTestId('hash-type-dropdown-trigger')).toHaveValue('1000 - NTLM');
     await expect(page.getByTestId('attack-mode-dropdown-trigger')).toHaveValue('TSI');

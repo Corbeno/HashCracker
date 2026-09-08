@@ -7,8 +7,15 @@ export function hashInput(page: Page) {
   return page.getByTestId('hash-input');
 }
 
-export async function startCracking(page: Page, hashes: string | string[]) {
+export async function startCracking(page: Page, hashes: string | string[], title?: string) {
   const value = Array.isArray(hashes) ? hashes.join('\n') : hashes;
+  if (title !== undefined) {
+    const titleInput = page.getByTestId('job-title-input');
+    if ((await titleInput.count()) === 0) {
+      await page.getByTestId('add-job-title').click();
+    }
+    await titleInput.fill(title);
+  }
   await hashInput(page).fill(value);
   await page.getByTestId('start-cracking').click();
 }

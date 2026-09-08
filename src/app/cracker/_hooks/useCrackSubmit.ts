@@ -6,7 +6,12 @@ interface UseCrackSubmitArgs {
 
 interface UseCrackSubmitResult {
   error: string | null;
-  submit: (hashInput: string, hashType: number, attackMode: string) => Promise<void>;
+  submit: (
+    hashInput: string,
+    hashType: number,
+    attackMode: string,
+    title?: string
+  ) => Promise<void>;
 }
 
 export default function useCrackSubmit({
@@ -15,7 +20,7 @@ export default function useCrackSubmit({
   const [error, setError] = useState<string | null>(null);
 
   const submit = useCallback(
-    async (hashInput: string, hashType: number, attackMode: string) => {
+    async (hashInput: string, hashType: number, attackMode: string, title?: string) => {
       try {
         if (!hashInput.trim()) {
           setError('Please enter at least one hash');
@@ -36,6 +41,7 @@ export default function useCrackSubmit({
             hashes,
             type: hashType,
             mode: attackMode,
+            title: title?.trim() || undefined,
           }),
         });
 

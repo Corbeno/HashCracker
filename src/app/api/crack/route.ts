@@ -11,13 +11,14 @@ export interface CrackRequest {
   hashes: string[];
   type: number;
   mode: string;
+  title?: string;
 }
 
 const SMART_ATTACK_MODE_SEQUENCE = ['tsi', 'rockyou', 'one-rule-to-rule-them-still'] as const;
 
 export async function POST(req: NextRequest) {
   try {
-    const { hashes, type, mode } = (await req.json()) as CrackRequest;
+    const { hashes, type, mode, title } = (await req.json()) as CrackRequest;
 
     if (!hashes || hashes.length === 0) {
       return NextResponse.json({ error: 'No hashes provided' }, { status: 400 });
@@ -25,6 +26,18 @@ export async function POST(req: NextRequest) {
 
     if (type === undefined) {
       return NextResponse.json({ error: 'Hash type is required' }, { status: 400 });
+    }
+
+    if (title !== undefined && typeof title !== 'string') {
+      return NextResponse.json({ error: 'Job title must be text' }, { status: 400 });
+    }
+
+    const normalizedTitle = title?.trim();
+    if (normalizedTitle && normalizedTitle.length > 120) {
+      return NextResponse.json(
+        { error: 'Job title must be 120 characters or fewer' },
+        { status: 400 }
+      );
     }
 
     const hashType = config.hashcat.hashTypes[type];
@@ -50,6 +63,7 @@ export async function POST(req: NextRequest) {
       for (const queuedMode of resolvedModes) {
         const job: HashJob = {
           id: crypto.randomUUID(),
+          title: normalizedTitle || undefined,
           hashes,
           type: hashType,
           mode: queuedMode,
@@ -74,7 +88,8 @@ export async function POST(req: NextRequest) {
     // Create a new job
     const job: HashJob = {
       id: crypto.randomUUID(),
-      hashes: hashes,
+      title: normalizedTitle || undefined,
+      hashes,
       type: hashType,
       mode: attackMode,
       status: 'pending',

@@ -25,6 +25,7 @@ export interface DebugInfo {
 
 export interface HashJob {
   id: string;
+  title?: string;
   hashes: string[];
   type: HashType;
   mode: HashcatMode;

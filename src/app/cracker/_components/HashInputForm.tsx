@@ -11,6 +11,7 @@ import config from '@/config';
 const CRACKER_FORM_STORAGE_KEY = 'hash-cracker:cracker-form-state';
 
 interface PersistedCrackerFormState {
+  title: string;
   hashInput: string;
   hashType: number;
   attackMode: string;
@@ -35,9 +36,18 @@ export default function HashInputForm({
   openBenchmarkModal,
   onCrackingStart,
 }: HashInputFormProps) {
+  const [title, setTitle] = useState('');
+  const [isTitleInputVisible, setIsTitleInputVisible] = useState(false);
   const [attackMode, setAttackMode] = useState<string>('smart');
-  const { error, submit } = useCrackSubmit({ onCrackingStart });
+  const { error, submit } = useCrackSubmit({
+    onCrackingStart: () => {
+      setTitle('');
+      setIsTitleInputVisible(false);
+      onCrackingStart();
+    },
+  });
   const hasRestoredFromStorageRef = useRef(false);
+  const titleInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!hasRestoredFromStorageRef.current) {
@@ -45,6 +55,7 @@ export default function HashInputForm({
     }
 
     const state: PersistedCrackerFormState = {
+      title,
       hashInput,
       hashType,
       attackMode,
@@ -55,7 +66,7 @@ export default function HashInputForm({
     } catch {
       // Ignore storage write failures.
     }
-  }, [hashInput, hashType, attackMode]);
+  }, [title, hashInput, hashType, attackMode]);
 
   useEffect(() => {
     try {
@@ -63,6 +74,11 @@ export default function HashInputForm({
       if (!raw) return;
 
       const parsed = JSON.parse(raw) as Partial<PersistedCrackerFormState>;
+
+      if (typeof parsed.title === 'string') {
+        setTitle(parsed.title);
+        setIsTitleInputVisible(parsed.title.length > 0);
+      }
 
       if (typeof parsed.hashInput === 'string') {
         setHashInput(parsed.hashInput);
@@ -87,13 +103,19 @@ export default function HashInputForm({
     }
   }, [setHashInput, setHashType]);
 
+  useEffect(() => {
+    if (isTitleInputVisible) {
+      titleInputRef.current?.focus();
+    }
+  }, [isTitleInputVisible]);
+
   const handleAttackModeChange = (option: DropdownOption) => {
     setAttackMode(option.id as string);
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    await submit(hashInput, hashType, attackMode);
+    await submit(hashInput, hashType, attackMode, title);
   };
 
   // Get available hash types from config
@@ -124,15 +146,59 @@ export default function HashInputForm({
     <div className="bg-gray-800/50 backdrop-blur-sm p-6 rounded-2xl border border-gray-700">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <div className="flex justify-between items-center mb-2">
+          <div className="flex min-h-8 flex-wrap items-center gap-3 mb-2">
             <label htmlFor="hash-input" className="text-gray-300">
               Enter Hash(es)
             </label>
-            <div className="flex gap-2">
+            {isTitleInputVisible ? (
+              <div className="relative w-56 max-w-full">
+                <label htmlFor="job-title" className="sr-only">
+                  Job name (optional)
+                </label>
+                <input
+                  ref={titleInputRef}
+                  id="job-title"
+                  data-testid="job-title-input"
+                  type="text"
+                  value={title}
+                  maxLength={120}
+                  onChange={event => setTitle(event.target.value)}
+                  onBlur={() => {
+                    if (!title.trim()) {
+                      setTitle('');
+                      setIsTitleInputVisible(false);
+                    }
+                  }}
+                  className="h-8 w-full bg-gray-900/50 rounded-lg border border-gray-700 pl-3 pr-9 text-sm"
+                  placeholder="Job name (optional)"
+                />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTitle('');
+                    setIsTitleInputVisible(false);
+                  }}
+                  className="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-white transition-colors"
+                  aria-label="Remove job name"
+                >
+                  ×
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsTitleInputVisible(true)}
+                className="h-8 text-sm text-gray-400 hover:text-white transition-colors"
+                data-testid="add-job-title"
+              >
+                + Add name
+              </button>
+            )}
+            <div className="flex gap-2 ml-auto">
               <button
                 type="button"
                 onClick={openBenchmarkModal}
-                className="bg-blue-600 hover:bg-blue-700 rounded-md py-1 px-3 text-sm font-medium transition-colors flex items-center gap-1"
+                className="h-8 bg-blue-600 hover:bg-blue-700 rounded-md px-3 text-sm font-medium transition-colors flex items-center gap-1"
                 title="Run hashcat benchmark"
                 data-testid="open-benchmark"
               >
@@ -142,7 +208,7 @@ export default function HashInputForm({
               <button
                 type="button"
                 onClick={openYoinkModal}
-                className="bg-purple-600 hover:bg-purple-700 rounded-md py-1 px-3 text-sm font-medium transition-colors flex items-center gap-1"
+                className="h-8 bg-purple-600 hover:bg-purple-700 rounded-md px-3 text-sm font-medium transition-colors flex items-center gap-1"
                 title="Extract hashes from text"
                 data-testid="open-yoink"
               >

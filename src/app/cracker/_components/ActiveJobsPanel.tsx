@@ -97,6 +97,16 @@ export default function ActiveJobsPanel({
           >
             <div className="flex flex-wrap items-center justify-between mb-2 gap-2">
               <div className="flex flex-wrap items-center gap-2">
+                {job.title && (
+                  <>
+                    <h3 className="text-lg font-semibold text-white" data-testid="job-title">
+                      {job.title}
+                    </h3>
+                    <span className="text-gray-600" aria-hidden="true">
+                      |
+                    </span>
+                  </>
+                )}
                 <span
                   className={`font-medium ${getStatusColor(job.status)}`}
                   data-testid="job-status"
