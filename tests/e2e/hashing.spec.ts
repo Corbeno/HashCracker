@@ -3,6 +3,7 @@ import { expect, test } from '@playwright/test';
 import {
   cancelJob,
   crackedHashesTbody,
+  crackHashesViaApi,
   hashInput,
   openJobDetails,
   selectAttackMode,
@@ -45,6 +46,39 @@ test.describe('Hashing Flow', () => {
     await waitForJobVisible(page, hash);
   });
 
+  test('should immediately complete a job when every hash is already cracked', async ({ page }) => {
+    const hash = '5f4dcc3b5aa765d61d8327deb882cf99';
+    await crackHashesViaApi(page.request, [hash]);
+
+    const queuedResponse = await page.request.post('/api/crack', {
+      data: { hashes: [hash], type: 0, mode: 'tsi' },
+    });
+    expect(queuedResponse.ok()).toBeTruthy();
+    const { jobId } = (await queuedResponse.json()) as { jobId: string };
+
+    await expect
+      .poll(async () => {
+        const response = await page.request.get('/api/state');
+        const state = (await response.json()) as {
+          jobs: Array<{ id: string; status: string }>;
+        };
+        return state.jobs.find(job => job.id === jobId)?.status;
+      })
+      .toBe('completed');
+
+    const stateResponse = await page.request.get('/api/state');
+    const state = (await stateResponse.json()) as {
+      jobs: Array<{
+        id: string;
+        debugInfo?: unknown;
+        results?: Array<{ password: string | null }>;
+      }>;
+    };
+    const completedJob = state.jobs.find(job => job.id === jobId);
+    expect(completedJob?.debugInfo).toBeUndefined();
+    expect(completedJob?.results).toEqual([{ hash, password: 'password' }]);
+  });
+
   test('should crack a simple MD5 hash', async ({ page }) => {
     // Submit known MD5 hash (password = "password")
     const hash = '5f4dcc3b5aa765d61d8327deb882cf99';
@@ -53,7 +87,7 @@ test.describe('Hashing Flow', () => {
 
     // Wait for hash to be cracked and appear in Cracked Hashes panel
     // This should be fast with rockyou wordlist
-    await expect(crackedHashesTbody(page).getByRole('cell', { name: hash })).toBeVisible({
+    await expect(crackedHashesTbody(page).getByRole('cell', { name: hash }).first()).toBeVisible({
       timeout: 60000,
     });
     await expect(
@@ -61,7 +95,13 @@ test.describe('Hashing Flow', () => {
     ).toBeVisible({
       timeout: 60000,
     });
-    await expect(crackedHashesTbody(page)).toContainText(/\b0\b\s*-\s*MD5/i, { timeout: 60000 });
+    await expect(
+      crackedHashesTbody(page)
+        .locator('tr')
+        .filter({ hasText: hash })
+        .filter({ hasText: '0 - MD5' })
+        .first()
+    ).toBeVisible({ timeout: 60000 });
   });
 
   test('should crack multiple hashes', async ({ page }) => {
@@ -158,7 +198,7 @@ test.describe('Hashing Flow', () => {
     await startCracking(page, hash);
 
     // Wait for hash to be cracked
-    await expect(crackedHashesTbody(page).getByRole('cell', { name: hash })).toBeVisible({
+    await expect(crackedHashesTbody(page).getByRole('cell', { name: hash }).first()).toBeVisible({
       timeout: 60000,
     });
     await expect(
@@ -181,7 +221,7 @@ test.describe('Hashing Flow', () => {
     const hash = '5f4dcc3b5aa765d61d8327deb882cf99';
     await startCracking(page, hash);
 
-    await expect(crackedHashesTbody(page).getByRole('cell', { name: hash })).toBeVisible({
+    await expect(crackedHashesTbody(page).getByRole('cell', { name: hash }).first()).toBeVisible({
       timeout: 60000,
     });
 
@@ -200,7 +240,9 @@ test.describe('Hashing Flow', () => {
     const secondHash = '098f6bcd4621d373cade4e832627b4f6'; // test
 
     await startCracking(page, firstHash);
-    await expect(crackedHashesTbody(page).getByRole('cell', { name: firstHash })).toBeVisible({
+    await expect(
+      crackedHashesTbody(page).getByRole('cell', { name: firstHash }).first()
+    ).toBeVisible({
       timeout: 60000,
     });
 
@@ -217,11 +259,10 @@ test.describe('Hashing Flow', () => {
     const uncrackedHash = randomHex();
 
     // Ensure the known hash is available in the cracked vault before creating the mixed job.
-    const crackResponse = await page.request.post('/api/open/crack', {
-      data: { hashes: [crackedHash], hashType: 0 },
-    });
-    expect(crackResponse.ok()).toBeTruthy();
-    await expect(crackedHashesTbody(page).getByRole('cell', { name: crackedHash })).toBeVisible({
+    await crackHashesViaApi(page.request, [crackedHash]);
+    await expect(
+      crackedHashesTbody(page).getByRole('cell', { name: crackedHash }).first()
+    ).toBeVisible({
       timeout: 10000,
     });
 

@@ -1,4 +1,4 @@
-import { expect, Locator, Page } from '@playwright/test';
+import { expect, type APIRequestContext, Locator, Page } from '@playwright/test';
 
 const dropdownTriggerTestId = (base: string) => `${base}-trigger`;
 const dropdownSearchTestId = (base: string) => `${base}-search`;
@@ -11,6 +11,42 @@ export async function startCracking(page: Page, hashes: string | string[]) {
   const value = Array.isArray(hashes) ? hashes.join('\n') : hashes;
   await hashInput(page).fill(value);
   await page.getByTestId('start-cracking').click();
+}
+
+export async function crackHashesViaApi(
+  request: APIRequestContext,
+  hashes: string[],
+  hashType = 0,
+  mode = 'tsi'
+): Promise<void> {
+  const knownResponse = await request.get(`/api/cracked-hashes?hashType=${hashType}`);
+  expect(knownResponse.ok()).toBeTruthy();
+  const { crackedHashes } = (await knownResponse.json()) as {
+    crackedHashes: Record<string, { password: string }>;
+  };
+  const knownHashes = new Set(Object.keys(crackedHashes).map(hash => hash.toLowerCase()));
+  if (hashes.every(hash => knownHashes.has(hash.toLowerCase()))) {
+    return;
+  }
+
+  const response = await request.post('/api/crack', {
+    data: { hashes, type: hashType, mode },
+  });
+  expect(response.ok()).toBeTruthy();
+
+  const { jobId } = (await response.json()) as { jobId: string };
+  await expect
+    .poll(
+      async () => {
+        const stateResponse = await request.get('/api/state');
+        const state = (await stateResponse.json()) as {
+          jobs: Array<{ id: string; status: string }>;
+        };
+        return state.jobs.find(job => job.id === jobId)?.status;
+      },
+      { timeout: 60000 }
+    )
+    .toBe('completed');
 }
 
 export async function openYoink(page: Page) {

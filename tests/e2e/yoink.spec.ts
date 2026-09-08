@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 
+import { crackHashesViaApi } from './utils/cracker';
 import { gotoCracker } from './utils/navigation';
 import {
   openYoink,
@@ -94,10 +95,7 @@ test.describe('Yoink Modal', () => {
   test('should identify a known cracked hash regardless of MD5 letter casing', async ({ page }) => {
     const hash = '5f4dcc3b5aa765d61d8327deb882cf99';
     const uppercaseHash = hash.toUpperCase();
-    const crackResponse = await page.request.post('/api/open/crack', {
-      data: { hashes: [hash], hashType: 0 },
-    });
-    expect(crackResponse.ok()).toBeTruthy();
+    await crackHashesViaApi(page.request, [hash]);
 
     await openYoink(page);
     await expect(page.getByText('Loading hash types...')).not.toBeVisible({ timeout: 10000 });

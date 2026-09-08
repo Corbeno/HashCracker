@@ -2,8 +2,9 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 
 import { applyCrackedPasswordsToCredentialVault } from './credentialVaultStore';
+import { normalizeHashForType } from './hashNormalization';
 import { HashcatStatusJson, HashCracker } from './hashUtils';
-import { readHashVault, upsertCrackedHashes } from './hashVaultStore';
+import { readHashVault, readHashVaultByType, upsertCrackedHashes } from './hashVaultStore';
 import { logger } from './logger';
 import { sendEventToAll, sendJobsToAll } from './miscUtils';
 
@@ -161,7 +162,35 @@ export class JobQueue {
     this.processNextJob();
   }
 
+  private getAlreadyCrackedAllHashes(job: HashJob): HashResult[] | null {
+    const crackedByHash = new Map(
+      readHashVaultByType(job.type.id).map(entry => [
+        normalizeHashForType(job.type.id, entry.hash),
+        entry.password,
+      ])
+    );
+    const results = job.hashes.map(hash => {
+      const key = normalizeHashForType(job.type.id, hash);
+      return {
+        hash,
+        password: crackedByHash.has(key) ? crackedByHash.get(key)! : null,
+      };
+    });
+
+    return results.every(result => result.password !== null) ? results : null;
+  }
+
   private async startJob(job: HashJob): Promise<void> {
+    const alreadyCrackedAllHashes = this.getAlreadyCrackedAllHashes(job);
+    if (alreadyCrackedAllHashes) {
+      logger.info(`Skipping hashcat for job ${job.id}: all hashes are already cracked`);
+      job.status = 'completed';
+      job.results = alreadyCrackedAllHashes;
+      this.completeCurrentJob();
+      sendJobsToAll();
+      return;
+    }
+
     // Kill any existing hashcat processes
     await this.killAnyHashcat();
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -250,6 +279,9 @@ export class JobQueue {
 const getJobQueue = (): JobQueue => {
   if (!global._jobQueueInstance) {
     global._jobQueueInstance = new JobQueue();
+  } else if (Object.getPrototypeOf(global._jobQueueInstance) !== JobQueue.prototype) {
+    // Preserve queued jobs across dev reloads while picking up the latest queue methods.
+    Object.setPrototypeOf(global._jobQueueInstance, JobQueue.prototype);
   }
   return global._jobQueueInstance;
 };
