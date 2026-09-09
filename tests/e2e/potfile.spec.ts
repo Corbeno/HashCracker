@@ -23,7 +23,7 @@ test.describe('Potfile Modal', () => {
     });
 
     await page.reload();
-    await expect(page.getByTestId('open-potfile')).toBeVisible();
+    await expect(page.getByTestId('hash-data-menu-toggle').first()).toBeVisible();
     expect(potfileRequestCount).toBe(0);
 
     await openPotfile(page);

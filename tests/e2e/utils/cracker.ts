@@ -89,12 +89,44 @@ export function activeJobsPanel(page: Page) {
   return page.getByTestId('active-jobs-panel');
 }
 
-export function crackedHashesPanel(page: Page) {
-  return page.getByTestId('cracked-hashes-panel');
+export function crackedHashesModal(page: Page) {
+  return page.getByTestId('session-cracked-hashes-modal');
 }
 
 export function crackedHashesTbody(page: Page) {
-  return page.getByTestId('cracked-hashes-tbody');
+  return crackedHashesModal(page).getByTestId('cracked-hashes-tbody');
+}
+
+export async function openHashDataMenu(page: Page) {
+  // AppHeader renders separate desktop/mobile layouts; the desktop toggle is first.
+  await page.getByTestId('hash-data-menu-toggle').first().click();
+  await expect(page.getByRole('menu')).toBeVisible();
+}
+
+export async function openCrackedHashes(page: Page) {
+  await openHashDataMenu(page);
+  await page.getByTestId('open-session-cracked-hashes').click();
+  await expect(crackedHashesModal(page)).toBeVisible();
+}
+
+export async function closeCrackedHashes(page: Page) {
+  await crackedHashesModal(page).getByTestId('session-cracked-hashes-close').click();
+  await expect(crackedHashesModal(page)).toBeHidden();
+}
+
+export async function waitForCrackedHash(page: Page, hash: string, password?: string) {
+  await expect
+    .poll(
+      async () => {
+        const response = await page.request.get('/api/state');
+        const state = (await response.json()) as {
+          crackedHashes?: Array<{ hash: string; password: string }>;
+        };
+        return state.crackedHashes?.find(entry => entry.hash === hash)?.password;
+      },
+      { timeout: 60000 }
+    )
+    .toEqual(password ?? expect.any(String));
 }
 
 export function jobCards(page: Page) {

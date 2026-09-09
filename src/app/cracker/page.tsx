@@ -4,10 +4,7 @@ import { useState } from 'react';
 
 import ActiveJobsPanel from '@/app/cracker/_components/ActiveJobsPanel';
 import BenchmarkModal from '@/app/cracker/_components/BenchmarkModal';
-import CrackedHashPasswordModal from '@/app/cracker/_components/CrackedHashPasswordModal';
-import CrackedHashesPanel from '@/app/cracker/_components/CrackedHashesPanel';
 import HashInputForm from '@/app/cracker/_components/HashInputForm';
-import PotfileModal from '@/app/cracker/_components/PotfileModal';
 import YoinkHashesModal from '@/app/cracker/_components/yoink/YoinkHashesModal';
 import AppHeader from '@/components/app-shell/AppHeader';
 import TabBar from '@/components/app-shell/TabBar';
@@ -24,8 +21,6 @@ export default function CrackerPage() {
   const [expandedJob, setExpandedJob] = useState<Job | null>(null);
   const [hashInput, setHashInput] = useState('');
   const [hashType, setHashType] = useState<number>(0);
-  const [isPotfileModalOpen, setIsPotfileModalOpen] = useState(false);
-  const [isCrackedPairsModalOpen, setIsCrackedPairsModalOpen] = useState(false);
   const [isYoinkHashesModalOpen, setIsYoinkHashesModalOpen] = useState(false);
   const [isBenchmarkModalOpen, setIsBenchmarkModalOpen] = useState(false);
 
@@ -58,12 +53,6 @@ export default function CrackerPage() {
           onCrackingStart={() => setHashInput('')}
         />
 
-        <CrackedHashesPanel
-          crackedHashes={crackedHashes}
-          onViewHashPasswordPairs={() => setIsCrackedPairsModalOpen(true)}
-          onViewPotfile={() => setIsPotfileModalOpen(true)}
-        />
-
         <ActiveJobsPanel
           jobs={jobs}
           crackedHashes={crackedHashes}
@@ -74,13 +63,6 @@ export default function CrackerPage() {
         />
       </div>
 
-      {isPotfileModalOpen && <PotfileModal onClose={() => setIsPotfileModalOpen(false)} />}
-      {isCrackedPairsModalOpen && (
-        <CrackedHashPasswordModal
-          crackedHashes={crackedHashes}
-          onClose={() => setIsCrackedPairsModalOpen(false)}
-        />
-      )}
       <YoinkHashesModal
         isOpen={isYoinkHashesModalOpen}
         onClose={() => setIsYoinkHashesModalOpen(false)}

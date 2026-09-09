@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import { useState } from 'react';
 
+import HashDataMenu from '@/components/app-shell/HashDataMenu';
 import Logo from '@/components/app-shell/Logo';
 import SystemInfoPanel from '@/components/app-shell/SystemInfoPanel';
 
@@ -112,6 +113,7 @@ export default function AppHeader({
             >
               {liveViewingEnabled ? <EyeOpenIcon /> : <EyeClosedIcon />}
             </button>
+            <HashDataMenu />
           </div>
         </div>
       </div>
@@ -159,7 +161,7 @@ export default function AppHeader({
                 </a>
               </div>
 
-              <div className="flex items-center">
+              <div className="flex items-center justify-between">
                 <button onClick={toggleLiveViewing} className="flex items-center gap-2">
                   <div
                     className={`p-1.5 rounded-md transition-colors ${
@@ -170,6 +172,7 @@ export default function AppHeader({
                   </div>
                   <span>{liveViewingEnabled ? 'Live Updates: On' : 'Live Updates: Off'}</span>
                 </button>
+                <HashDataMenu />
               </div>
             </div>
           </div>

@@ -1,10 +1,13 @@
 import { expect, Page } from '@playwright/test';
 
+import { openHashDataMenu } from './cracker';
+
 export function potfileModal(page: Page) {
   return page.getByTestId('potfile-modal');
 }
 
 export async function openPotfile(page: Page) {
+  await openHashDataMenu(page);
   await page.getByTestId('open-potfile').click();
   await expect(potfileModal(page)).toBeVisible();
 }

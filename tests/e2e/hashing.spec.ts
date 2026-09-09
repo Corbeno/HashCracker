@@ -2,14 +2,18 @@ import { expect, test } from '@playwright/test';
 
 import {
   cancelJob,
+  closeCrackedHashes,
   crackedHashesTbody,
   crackHashesViaApi,
   hashInput,
+  openCrackedHashes,
+  openHashDataMenu,
   openJobDetails,
   selectAttackMode,
   selectAttackModeById,
   selectHashType,
   startCracking,
+  waitForCrackedHash,
   waitForJobVisible,
 } from './utils/cracker';
 import { gotoCracker } from './utils/navigation';
@@ -26,12 +30,15 @@ test.describe('Hashing Flow', () => {
     await expect(page.getByText('Please enter at least one hash')).toBeVisible();
   });
 
-  test('should open and close plaintext modal', async ({ page }) => {
-    await page.getByTestId('open-cracked-pairs').click();
-    await expect(page.getByTestId('cracked-pairs-modal')).toBeVisible();
+  test('should show hash data menu options and open and close cracked hashes', async ({ page }) => {
+    await openHashDataMenu(page);
+    await expect(page.getByRole('menuitem', { name: 'View Cracked Hashes' })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'View Potfile', exact: true })).toBeVisible();
+    await expect(page.getByRole('menuitem')).toHaveCount(2);
 
-    await page.getByTestId('cracked-pairs-close').click();
-    await expect(page.getByTestId('cracked-pairs-modal')).toBeHidden();
+    await page.getByTestId('open-session-cracked-hashes').click();
+    await expect(page.getByTestId('session-cracked-hashes-modal')).toBeVisible();
+    await closeCrackedHashes(page);
   });
 
   test('should submit hash for cracking', async ({ page }) => {
@@ -99,8 +106,9 @@ test.describe('Hashing Flow', () => {
     await startCracking(page, hash);
     await waitForJobVisible(page, hash);
 
-    // Wait for hash to be cracked and appear in Cracked Hashes panel
-    // This should be fast with rockyou wordlist
+    // Wait for hashcat, then fetch the current cracked hashes when the modal opens.
+    await waitForCrackedHash(page, hash, 'password');
+    await openCrackedHashes(page);
     await expect(crackedHashesTbody(page).getByRole('cell', { name: hash }).first()).toBeVisible({
       timeout: 60000,
     });
@@ -131,12 +139,12 @@ test.describe('Hashing Flow', () => {
     await waitForJobVisible(page, hashList[0]);
     await waitForJobVisible(page, hashList[1]);
 
-    // Wait for at least one to be cracked
-    await expect(crackedHashesTbody(page)).toContainText(
-      /5f4dcc3b5aa765d61d8327deb882cf99|098f6bcd4621d373cade4e832627b4f6/,
-      { timeout: 60000 }
-    );
-    await expect(crackedHashesTbody(page)).toContainText(/password|test/, { timeout: 60000 });
+    await waitForCrackedHash(page, hashList[0], 'password');
+    await waitForCrackedHash(page, hashList[1], 'test');
+    await openCrackedHashes(page);
+    await expect(crackedHashesTbody(page)).toContainText(hashList[0]);
+    await expect(crackedHashesTbody(page)).toContainText(hashList[1]);
+    await expect(crackedHashesTbody(page)).toContainText(/password|test/);
   });
 
   test('should show job progress', async ({ page }) => {
@@ -211,15 +219,8 @@ test.describe('Hashing Flow', () => {
     const hash = '5f4dcc3b5aa765d61d8327deb882cf99';
     await startCracking(page, hash);
 
-    // Wait for hash to be cracked
-    await expect(crackedHashesTbody(page).getByRole('cell', { name: hash }).first()).toBeVisible({
-      timeout: 60000,
-    });
-    await expect(
-      crackedHashesTbody(page).getByRole('button', { name: 'password' }).first()
-    ).toBeVisible({
-      timeout: 60000,
-    });
+    // Wait for hash to be cracked.
+    await waitForCrackedHash(page, hash, 'password');
 
     // In the Active Jobs panel, the cracked hash should show the recovered password.
     const card = await waitForJobVisible(page, hash);
@@ -231,22 +232,20 @@ test.describe('Hashing Flow', () => {
     ).toBeVisible();
   });
 
-  test('should show cracked hash/password pairs in plaintext modal', async ({ page }) => {
+  test('should fetch cracked hashes when the modal opens', async ({ page }) => {
     const hash = '5f4dcc3b5aa765d61d8327deb882cf99';
     await startCracking(page, hash);
+    await waitForCrackedHash(page, hash, 'password');
 
-    await expect(crackedHashesTbody(page).getByRole('cell', { name: hash }).first()).toBeVisible({
-      timeout: 60000,
+    let stateRequestCount = 0;
+    page.on('request', request => {
+      if (new URL(request.url()).pathname === '/api/state') stateRequestCount += 1;
     });
 
-    await page.getByTestId('open-cracked-pairs').click();
-    await expect(page.getByTestId('cracked-pairs-modal')).toBeVisible();
-    await expect(page.getByTestId('cracked-pairs-content')).toHaveValue(
-      new RegExp(`${hash} -> password`),
-      {
-        timeout: 10000,
-      }
-    );
+    await openCrackedHashes(page);
+    await expect.poll(() => stateRequestCount).toBeGreaterThan(0);
+    await expect(crackedHashesTbody(page)).toContainText(hash);
+    await expect(crackedHashesTbody(page)).toContainText('password');
   });
 
   test('should show newest cracked hash at the top', async ({ page }) => {
@@ -254,17 +253,12 @@ test.describe('Hashing Flow', () => {
     const secondHash = '098f6bcd4621d373cade4e832627b4f6'; // test
 
     await startCracking(page, firstHash);
-    await expect(
-      crackedHashesTbody(page).getByRole('cell', { name: firstHash }).first()
-    ).toBeVisible({
-      timeout: 60000,
-    });
+    await waitForCrackedHash(page, firstHash, 'password');
 
     await startCracking(page, secondHash);
-    await expect(crackedHashesTbody(page).getByRole('cell', { name: secondHash })).toBeVisible({
-      timeout: 60000,
-    });
+    await waitForCrackedHash(page, secondHash, 'test');
 
+    await openCrackedHashes(page);
     await expect(crackedHashesTbody(page).locator('tr').first()).toContainText(secondHash);
   });
 
@@ -274,11 +268,7 @@ test.describe('Hashing Flow', () => {
 
     // Ensure the known hash is available in the cracked vault before creating the mixed job.
     await crackHashesViaApi(page.request, [crackedHash]);
-    await expect(
-      crackedHashesTbody(page).getByRole('cell', { name: crackedHash }).first()
-    ).toBeVisible({
-      timeout: 10000,
-    });
+    await waitForCrackedHash(page, crackedHash, 'password');
 
     await startCracking(page, [crackedHash, uncrackedHash]);
     const jobCard = await waitForJobVisible(page, uncrackedHash);

@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test';
 
 import {
-  crackedHashesTbody,
   selectAttackMode,
   selectHashType as selectCrackerHashType,
   startCracking,
+  waitForCrackedHash,
   waitForJobVisible,
 } from './utils/cracker';
 import { gotoCracker } from './utils/navigation';
@@ -128,8 +128,7 @@ test.describe('Credential Vault', () => {
     await selectCrackerHashType(page, 0);
     await selectAttackMode(page, 'rockyou');
     await startCracking(page, hash);
-    await expect(crackedHashesTbody(page)).toContainText(hash, { timeout: 60000 });
-    await expect(crackedHashesTbody(page)).toContainText('password', { timeout: 60000 });
+    await waitForCrackedHash(page, hash, 'password');
 
     await gotoVault(page);
     await createVaultTab(page, tabName);
