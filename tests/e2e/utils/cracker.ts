@@ -72,16 +72,11 @@ export async function selectHashType(page: Page, hashTypeId: number) {
   await page.locator(`#dropdown-option-${hashTypeId}`).click();
 }
 
-export async function selectAttackMode(page: Page, searchTerm: string) {
-  await page.getByTestId(dropdownTriggerTestId('attack-mode-dropdown')).click();
-  await page.getByTestId(dropdownSearchTestId('attack-mode-dropdown')).fill(searchTerm);
-  // First matching option after filtering.
-  await page.getByRole('option').first().click();
-}
-
-export async function selectAttackModeById(page: Page, modeId: string) {
+export async function selectAttackMode(page: Page, modeId: string) {
   await page.getByTestId(dropdownTriggerTestId('attack-mode-dropdown')).click();
   await page.getByTestId(dropdownSearchTestId('attack-mode-dropdown')).fill(modeId);
+  // Select by ID rather than the first search result. For example, searching for
+  // "rockyou" also matches Smart because its description mentions RockYou.
   await page.locator(`#dropdown-option-${modeId}`).click();
 }
 

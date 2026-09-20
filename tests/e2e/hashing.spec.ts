@@ -10,7 +10,6 @@ import {
   openHashDataMenu,
   openJobDetails,
   selectAttackMode,
-  selectAttackModeById,
   selectHashType,
   startCracking,
   waitForCrackedHash,
@@ -206,7 +205,7 @@ test.describe('Hashing Flow', () => {
   });
 
   test('should select different attack mode', async ({ page }) => {
-    await selectAttackModeById(page, 'tsi');
+    await selectAttackMode(page, 'tsi');
 
     // Submit hash
     const hash = '5f4dcc3b5aa765d61d8327deb882cf99';
@@ -326,7 +325,7 @@ test.describe('Hashing Flow', () => {
     await page.getByTestId('job-title-input').fill(draftTitle);
     await hashInput(page).fill(draftInput);
     await selectHashType(page, 1000);
-    await selectAttackModeById(page, 'tsi');
+    await selectAttackMode(page, 'tsi');
 
     await expect(page.getByTestId('hash-type-dropdown-trigger')).toHaveValue('1000 - NTLM');
     await expect(page.getByTestId('attack-mode-dropdown-trigger')).toHaveValue('TSI');
