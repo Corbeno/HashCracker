@@ -50,6 +50,17 @@ export class JobQueue {
   private maxHistorySize: number = 50; // Limit history to 50 jobs
 
   async addJob(job: HashJob): Promise<{ isQueued: boolean }> {
+    // Known results do not need the hashcat worker, even when it is busy.
+    const knownResults = this.getAlreadyCrackedAllHashes(job);
+    if (knownResults) {
+      job.status = 'completed';
+      job.results = knownResults;
+      job.endTime = new Date().toISOString();
+      this.addToHistory(job);
+      sendJobsToAll();
+      return { isQueued: false };
+    }
+
     if (this.isProcessing) {
       this.queue.push(job);
       sendJobsToAll();

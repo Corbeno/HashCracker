@@ -29,7 +29,7 @@ import {
   themeAlpine,
 } from 'ag-grid-community';
 import { AgGridReact } from 'ag-grid-react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
 import {
   useCallback,
   useEffect,
@@ -91,7 +91,6 @@ function buildSelectedCredentialClipboardText(credentials: Credential[]): string
 }
 
 export default function CredentialVaultPanel() {
-  const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const {
@@ -168,11 +167,14 @@ export default function CredentialVaultPanel() {
 
   const setRouteTabParam = useCallback(
     (tabId: string) => {
-      const params = new URLSearchParams(searchParams?.toString() ?? '');
+      // Updating local tab state must not start a navigation that can override
+      // a user's concurrent navigation away from the vault.
+      if (window.location.pathname !== pathname) return;
+      const params = new URLSearchParams(window.location.search);
       params.set('tab', tabId);
-      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+      window.history.replaceState(null, '', `${pathname}?${params.toString()}`);
     },
-    [pathname, router, searchParams]
+    [pathname]
   );
 
   const switchTab = useCallback(

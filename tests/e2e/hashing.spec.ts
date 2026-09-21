@@ -257,8 +257,21 @@ test.describe('Hashing Flow', () => {
     await startCracking(page, secondHash);
     await waitForCrackedHash(page, secondHash, 'test');
 
+    // The vault persists across runs: re-submitting an already cracked hash
+    // does not change its original addedDate. Check the persisted chronology.
+    const response = await page.request.get('/api/state');
+    expect(response.ok()).toBeTruthy();
+    const { crackedHashes } = (await response.json()) as {
+      crackedHashes: Array<{ hash: string; addedDate: string }>;
+    };
+    expect(crackedHashes.length).toBeGreaterThanOrEqual(2);
+    const newestDate = Math.max(...crackedHashes.map(entry => Date.parse(entry.addedDate)));
+    expect(Date.parse(crackedHashes[0].addedDate)).toBe(newestDate);
+
     await openCrackedHashes(page);
-    await expect(crackedHashesTbody(page).locator('tr').first()).toContainText(secondHash);
+    await expect(crackedHashesTbody(page).locator('tr').first()).toContainText(
+      crackedHashes[0].hash
+    );
   });
 
   test('should copy a job as displayed, including cracked passwords', async ({ page }) => {
