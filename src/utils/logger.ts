@@ -1,6 +1,8 @@
 import fs from 'fs/promises';
 import path from 'path';
 
+import { ensureDirectory } from './directoryUtils';
+
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 class Logger {
@@ -17,7 +19,10 @@ class Logger {
 
   private async init() {
     try {
-      await fs.mkdir(this.logDir, { recursive: true });
+      await ensureDirectory(this.logDir, {
+        caller: 'Logger.init',
+        source: 'process.cwd() / logs',
+      });
     } catch (error) {
       console.error('Failed to create log directory:', error);
     }

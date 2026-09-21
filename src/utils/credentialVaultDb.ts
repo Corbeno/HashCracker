@@ -4,6 +4,7 @@ import path from 'path';
 import Database from 'better-sqlite3';
 
 import { withSqlErrorLogging } from './sqliteUtils';
+import { ensureDirectorySync } from './directoryUtils';
 
 const VAULT_DB_PATH = path.join(process.cwd(), 'data', 'credential-vault.sqlite');
 
@@ -101,7 +102,10 @@ export interface CredentialHashRow {
 function ensureVaultDbParentExists(): void {
   const directory = path.dirname(VAULT_DB_PATH);
   if (!fs.existsSync(directory)) {
-    fs.mkdirSync(directory, { recursive: true });
+    ensureDirectorySync(directory, {
+      caller: 'ensureVaultDbParentExists',
+      source: 'parent of VAULT_DB_PATH',
+    });
   }
 }
 

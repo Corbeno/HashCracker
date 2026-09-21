@@ -9,6 +9,7 @@ import readline from 'readline';
 
 import { DebugInfo, JobStatus } from './jobQueue';
 import { logger } from './logger';
+import { ensureDirectorySync } from './directoryUtils';
 
 import config from '@/config';
 import { HashcatMode } from '@/config/config';
@@ -163,8 +164,14 @@ export class HashCracker extends EventEmitter {
     const potfilePath = config.hashcat.potfilePath || path.join(hashesDir, 'hashcat.potfile');
 
     // Ensure directories exist
-    fsSync.mkdirSync(hashesDir, { recursive: true });
-    fsSync.mkdirSync(path.dirname(potfilePath), { recursive: true });
+    ensureDirectorySync(hashesDir, {
+      caller: 'HashCracker.execute: hashes directory',
+      source: 'config.hashcat.dirs.hashes / HASHES_DIR',
+    });
+    ensureDirectorySync(path.dirname(potfilePath), {
+      caller: 'HashCracker.execute: potfile parent',
+      source: 'config.hashcat.potfilePath or HASHES_DIR fallback',
+    });
     if (!fsSync.existsSync(potfilePath)) {
       fsSync.writeFileSync(potfilePath, '');
     }

@@ -4,6 +4,7 @@ import path from 'path';
 import Database from 'better-sqlite3';
 
 import { withSqlErrorLogging } from './sqliteUtils';
+import { ensureDirectorySync } from './directoryUtils';
 
 const HASH_VAULT_DB_PATH = path.join(process.cwd(), 'data', 'hash-vault.sqlite');
 
@@ -24,7 +25,10 @@ interface HashLookupParams {
 function ensureHashVaultDbParentExists(): void {
   const directory = path.dirname(HASH_VAULT_DB_PATH);
   if (!fs.existsSync(directory)) {
-    fs.mkdirSync(directory, { recursive: true });
+    ensureDirectorySync(directory, {
+      caller: 'ensureHashVaultDbParentExists',
+      source: 'parent of HASH_VAULT_DB_PATH',
+    });
   }
 }
 

@@ -33,14 +33,16 @@ interface Config {
 
 const config: Config = {
   hashcat: {
-    path: process.env.HASHCAT_PATH || '',
-    potfilePath: process.env.POTFILE_PATH || '',
+    path: process.env.HASHCAT_PATH?.trim() ? process.env.HASHCAT_PATH : '/usr/bin/hashcat',
+    potfilePath: process.env.POTFILE_PATH?.trim()
+      ? process.env.POTFILE_PATH
+      : './data/hashes/hashcat.potfile',
     statusTimer: 2, // Update system info every 2 seconds
     dirs: {
-      hashes: process.env.HASHES_DIR || '',
-      wordlists: process.env.WORDLISTS_DIR || '',
-      rules: process.env.RULES_DIR || '',
-      masks: process.env.MASKS_DIR || '',
+      hashes: process.env.HASHES_DIR?.trim() ? process.env.HASHES_DIR : './data/hashes',
+      wordlists: process.env.WORDLISTS_DIR?.trim() ? process.env.WORDLISTS_DIR : './data/wordlists',
+      rules: process.env.RULES_DIR?.trim() ? process.env.RULES_DIR : './data/rules',
+      masks: process.env.MASKS_DIR?.trim() ? process.env.MASKS_DIR : './data/masks',
     },
     hashTypes: hashTypes,
     attackModes: {
