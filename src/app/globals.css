@@ -8,6 +8,10 @@
   --background-end-rgb: 31, 41, 55;
 }
 
+html {
+  background-color: rgb(var(--background-start-rgb));
+}
+
 body {
   color: rgb(var(--foreground-rgb));
   background: linear-gradient(
