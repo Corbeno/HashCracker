@@ -18,6 +18,7 @@ interface LogTypeOption {
 
 const LOG_TYPE_OPTIONS: LogTypeOption[] = [
   { id: 'impacket-ntlm', label: 'Impacket - SAM NTLM', enabled: true },
+  { id: 'nxc-smb', label: 'NXC SMB - NTLM hashes', enabled: true },
   { id: 'mimikatz', label: 'Mimikatz - sekurlsa::logonpasswords', enabled: true },
   { id: 'generic', label: 'Generic (username + password)', enabled: true },
   { id: 'impacket-cached-domain', label: 'Impacket - Cached Domain (coming soon)', enabled: false },
@@ -134,7 +135,7 @@ export default function LogImportModal({ isOpen, onClose, onImport }: LogImportM
               id="log-import-raw"
               value={rawLog}
               onChange={event => setRawLog(event.target.value)}
-              placeholder="Paste impacket output here..."
+              placeholder="Paste raw credential log output here..."
               className="w-full h-72 bg-gray-900/50 rounded-xl border border-gray-700 p-3 font-mono text-sm resize-none"
             />
           </div>

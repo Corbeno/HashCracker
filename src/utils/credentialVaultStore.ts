@@ -44,6 +44,7 @@ import { normalizeHashForType } from '@/utils/hashNormalization';
 import { findCrackedHashPassword } from '@/utils/hashVaultStore';
 import { mergeImportedCredentials, normalizeUsername } from '@/utils/logImport/merge';
 import { parseGenericCredentialLog } from '@/utils/logImport/parsers/generic';
+import { parseNxcSmbLog } from '@/utils/logImport/parsers/nxcSmb';
 import { parseImpacketNtlmLog } from '@/utils/logImport/parsers/impacketNtlm';
 import { parseMimikatzLog } from '@/utils/logImport/parsers/mimikatz';
 import { generateUUID } from '@/utils/uuid';
@@ -474,7 +475,9 @@ export function applyCredentialVaultLogImport(
   }
 
   let parsedRecords: ReturnType<typeof parseImpacketNtlmLog>;
-  if (logType === 'impacket-ntlm') {
+  if (logType === 'nxc-smb') {
+    parsedRecords = parseNxcSmbLog(rawLog);
+  } else if (logType === 'impacket-ntlm') {
     parsedRecords = parseImpacketNtlmLog(rawLog);
   } else if (logType === 'mimikatz') {
     parsedRecords = parseMimikatzLog(rawLog);

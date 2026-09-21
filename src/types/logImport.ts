@@ -1,6 +1,11 @@
 import { CredentialVaultDocument } from '@/types/credentialVault';
 
-export type LogImportType = 'impacket-ntlm' | 'mimikatz' | 'generic' | 'impacket-cached-domain';
+export type LogImportType =
+  | 'impacket-ntlm'
+  | 'nxc-smb'
+  | 'mimikatz'
+  | 'generic'
+  | 'impacket-cached-domain';
 
 export interface LogImportRequest {
   tabId: string;
