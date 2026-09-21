@@ -55,6 +55,7 @@ export class JobQueue {
     if (knownResults) {
       job.status = 'completed';
       job.results = knownResults;
+      this.syncCredentialVault(job.type.id, knownResults);
       job.endTime = new Date().toISOString();
       this.addToHistory(job);
       sendJobsToAll();
@@ -192,12 +193,20 @@ export class JobQueue {
     return results.every(result => result.password !== null) ? results : null;
   }
 
+  private syncCredentialVault(hashType: number, results: HashResult[]): void {
+    const { vault, updatedCount } = applyCrackedPasswordsToCredentialVault(hashType, results);
+    if (updatedCount > 0) {
+      sendEventToAll('credentialVaultUpdated', { vault });
+    }
+  }
+
   private async startJob(job: HashJob): Promise<void> {
     const alreadyCrackedAllHashes = this.getAlreadyCrackedAllHashes(job);
     if (alreadyCrackedAllHashes) {
       logger.info(`Skipping hashcat for job ${job.id}: all hashes are already cracked`);
       job.status = 'completed';
       job.results = alreadyCrackedAllHashes;
+      this.syncCredentialVault(job.type.id, alreadyCrackedAllHashes);
       this.completeCurrentJob();
       sendJobsToAll();
       return;
@@ -234,13 +243,7 @@ export class JobQueue {
         if (crackedResults.length > 0) {
           upsertCrackedHashes(job.type.id, crackedResults);
 
-          const { vault, updatedCount } = applyCrackedPasswordsToCredentialVault(
-            job.type.id,
-            crackedResults
-          );
-          if (updatedCount > 0) {
-            sendEventToAll('credentialVaultUpdated', { vault });
-          }
+          this.syncCredentialVault(job.type.id, crackedResults);
 
           // Notify clients that cracked hashes changed.
           sendEventToAll('crackedHashes', { hashes: readHashVault() });
