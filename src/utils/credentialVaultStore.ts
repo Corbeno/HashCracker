@@ -46,10 +46,11 @@ import { mergeImportedCredentials, normalizeUsername } from '@/utils/logImport/m
 import { parseGenericCredentialLog } from '@/utils/logImport/parsers/generic';
 import { parseImpacketNtlmLog } from '@/utils/logImport/parsers/impacketNtlm';
 import { parseMimikatzLog } from '@/utils/logImport/parsers/mimikatz';
+import { generateUUID } from '@/utils/uuid';
 
 function buildBlankCredential(id?: string): Credential {
   return {
-    id: id ?? crypto.randomUUID(),
+    id: id ?? generateUUID(),
     username: '',
     password: '',
     hash: '',
@@ -60,7 +61,7 @@ function buildBlankCredential(id?: string): Credential {
 
 function makeSharedTab(credentials: Credential[] = []): CredentialVaultTab {
   return {
-    id: crypto.randomUUID(),
+    id: generateUUID(),
     name: 'Shared',
     credentials,
   };
@@ -223,7 +224,7 @@ export function applyCredentialVaultMutation(
       case 'tab.create': {
         const trimmedName = mutation.payload.name?.trim();
         const name = trimmedName && trimmedName.length > 0 ? trimmedName : `Tab ${countTabs() + 1}`;
-        const tabId = crypto.randomUUID();
+        const tabId = generateUUID();
         const credential = buildBlankCredential();
 
         insertTab({

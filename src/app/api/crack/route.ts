@@ -1,11 +1,10 @@
-import crypto from 'crypto';
-
 import { NextRequest, NextResponse } from 'next/server';
 
 import config from '@/config';
 import { isHashTypeCaseSensitive } from '@/config/hashTypes';
 import { HashJob, jobQueue } from '@/utils/jobQueue';
 import { logger } from '@/utils/logger';
+import { generateUUID } from '@/utils/uuid';
 
 export interface CrackRequest {
   hashes: string[];
@@ -62,7 +61,7 @@ export async function POST(req: NextRequest) {
       const queuedJobIds: string[] = [];
       for (const queuedMode of resolvedModes) {
         const job: HashJob = {
-          id: crypto.randomUUID(),
+          id: generateUUID(),
           title: normalizedTitle || undefined,
           hashes,
           type: hashType,
@@ -87,7 +86,7 @@ export async function POST(req: NextRequest) {
 
     // Create a new job
     const job: HashJob = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       title: normalizedTitle || undefined,
       hashes,
       type: hashType,

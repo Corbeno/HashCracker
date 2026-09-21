@@ -1,11 +1,10 @@
-import crypto from 'crypto';
-
 import { NextRequest } from 'next/server';
 
 import config from '@/config/config';
 import { logger } from '@/utils/logger';
 import { sendEventToAll, SSEClient } from '@/utils/miscUtils';
 import { getSystemInfo, initSystemInfoCache } from '@/utils/systemInfoCache';
+import { generateUUID } from '@/utils/uuid';
 
 function ensureEventInfrastructure(): void {
   if (!global.eventClients) {
@@ -42,7 +41,7 @@ export async function GET(_req: NextRequest) {
   const customReadable = new ReadableStream({
     start(controller: ReadableStreamDefaultController) {
       // Generate a unique ID for this client
-      clientId = crypto.randomUUID();
+      clientId = generateUUID();
       clientController = controller;
 
       // Add this client to our set

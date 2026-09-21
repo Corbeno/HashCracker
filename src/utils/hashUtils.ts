@@ -14,6 +14,7 @@ import config from '@/config';
 import { HashcatMode } from '@/config/config';
 import { HashType, isHashTypeCaseSensitive } from '@/config/hashTypes';
 import type { HashResult } from '@/types/hashResults';
+import { generateUUID } from '@/utils/uuid';
 
 interface CrackedPair {
   hash: string;
@@ -169,7 +170,7 @@ export class HashCracker extends EventEmitter {
     }
 
     // Write hashes to temporary file
-    const hashFile = path.join(hashesDir, `${crypto.randomUUID()}.hash`);
+    const hashFile = path.join(hashesDir, `${generateUUID()}.hash`);
     fsSync.writeFileSync(hashFile, hashes.join('\n'));
     logger.debug(`Hashes written to temporary file: ${hashFile}`);
 

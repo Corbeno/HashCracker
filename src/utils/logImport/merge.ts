@@ -1,5 +1,6 @@
 import { Credential } from '@/types/credentialVault';
 import { ParsedCredentialRecord, MergeImportResult } from '@/utils/logImport/types';
+import { generateUUID } from '@/utils/uuid';
 
 function stripDomainPrefix(username: string): string {
   const trimmed = username.trim();
@@ -61,7 +62,7 @@ export function mergeImportedCredentials(
     const existingIndex = usernameToIndex.get(normalizedUsername);
     if (existingIndex == null) {
       nextCredentials.push({
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         username: canonicalUsername,
         password: hasPassword ? normalizedPassword : '',
         hash: hasHash ? normalizedHash : '',

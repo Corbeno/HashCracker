@@ -57,6 +57,7 @@ import useCredentialVault from '@/hooks/useCredentialVault';
 import { Credential } from '@/types/credential';
 import { LogImportType } from '@/types/logImport';
 import { copyTextToClipboard } from '@/utils/clipboard';
+import { generateUUID } from '@/utils/uuid';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -329,7 +330,7 @@ export default function CredentialVaultPanel() {
 
   const handleAddRow = useCallback(() => {
     if (!activeTab) return;
-    const newId = crypto.randomUUID();
+    const newId = generateUUID();
     pendingNewRowId.current = newId;
     setQuickFilterText('');
     addCredential(activeTab.id, newId);
@@ -547,7 +548,7 @@ export default function CredentialVaultPanel() {
       } as Record<string, unknown>;
       if (!hasAnyCredentialData(updatedRow)) return;
 
-      const newId = crypto.randomUUID();
+      const newId = generateUUID();
       pendingAutoAppendFromRowId.current = event.data.id;
       pendingNewRowId.current = newId;
       addCredential(activeTab.id, newId);
