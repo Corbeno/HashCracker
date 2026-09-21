@@ -367,6 +367,25 @@ test.describe('Credential Vault', () => {
     );
   });
 
+  test('imports single-line NXC SMB hash output', async ({ page }) => {
+    const username = `EXAMPLE\\nxc-${Date.now()}`;
+    const machine = `NXC-${Date.now()}$`;
+    const lm = 'aad3b435b51404eeaad3b435b51404ee';
+    const nt = '6aa15b3d14492d3fa4aa7c5e9cdc0e6a';
+
+    await page.getByRole('button', { name: 'Log Import' }).click();
+    await page.locator('#log-import-type').selectOption('nxc-smb');
+    await page.locator('#log-import-raw').fill(
+      `${username}:1123:${lm}:${nt}::: (status=Disabled) ${machine}:1000:${lm}:${nt}::: (status=Enabled)`
+    );
+    await page.getByRole('button', { name: 'Import', exact: true }).click();
+    await expect(page.getByText('Parsed: 2')).toBeVisible({ timeout: 10000 });
+    await page.getByRole('button', { name: 'Close' }).click();
+    await expect(page.locator('.ag-center-cols-container')).toContainText(username);
+    await expect(page.locator('.ag-center-cols-container')).toContainText(machine);
+    await expect(page.locator('.ag-center-cols-container')).toContainText(nt);
+  });
+
   test('imports additional secretsdump formats (status and cached domain)', async ({ page }) => {
     const domainUsername = `john-${Date.now()}`;
     const domainUser = `OFFSEC\\${domainUsername}`;
