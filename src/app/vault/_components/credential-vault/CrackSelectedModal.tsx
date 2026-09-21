@@ -12,7 +12,6 @@ interface CrackSelectedModalProps {
   hashTypeNameById: Map<number, string>;
   isQueueing: boolean;
   queueError: string | null;
-  queueStatus: string | null;
   onAttackModeChange: (mode: string) => void;
   onClose: () => void;
   onQueueJobs: () => Promise<void>;
@@ -26,7 +25,6 @@ export default function CrackSelectedModal({
   hashTypeNameById,
   isQueueing,
   queueError,
-  queueStatus,
   onAttackModeChange,
   onClose,
   onQueueJobs,
@@ -95,12 +93,6 @@ export default function CrackSelectedModal({
           {queueError && (
             <div className="bg-red-900/30 border border-red-700 p-3 rounded-md text-sm text-red-200">
               {queueError}
-            </div>
-          )}
-
-          {queueStatus && (
-            <div className="bg-teal-900/20 border border-teal-700/60 p-3 rounded-md text-sm text-teal-100">
-              {queueStatus}
             </div>
           )}
         </div>

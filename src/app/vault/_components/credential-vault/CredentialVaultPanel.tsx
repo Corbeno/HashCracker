@@ -57,6 +57,7 @@ import useCredentialVault from '@/hooks/useCredentialVault';
 import { Credential } from '@/types/credential';
 import { LogImportType } from '@/types/logImport';
 import { copyTextToClipboard } from '@/utils/clipboard';
+import { showToast } from '@/utils/toast';
 import { generateUUID } from '@/utils/uuid';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -122,7 +123,6 @@ export default function CredentialVaultPanel() {
   const [selectedAttackMode, setSelectedAttackMode] = useState<string>('rockyou');
   const [isQueueingCrackJobs, setIsQueueingCrackJobs] = useState(false);
   const [queueCrackJobsError, setQueueCrackJobsError] = useState<string | null>(null);
-  const [queueCrackJobsStatus, setQueueCrackJobsStatus] = useState<string | null>(null);
   const [isGridLoading, setIsGridLoading] = useState(true);
   const gridApiRef = useRef<GridApi<Credential> | null>(null);
   const pendingNewRowId = useRef<string | null>(null);
@@ -682,8 +682,9 @@ export default function CredentialVaultPanel() {
         queuedCount += 1;
       }
 
-      setQueueCrackJobsStatus(
-        `Queued ${queuedCount} job${queuedCount === 1 ? '' : 's'}. Open Hash Cracker to monitor progress.`
+      showToast(
+        `Queued ${queuedCount} job${queuedCount === 1 ? '' : 's'}. Open Hash Cracker to monitor progress.`,
+        { type: 'success', duration: 5000 }
       );
       setSelectedIds(new Set());
       setIsCrackSelectedModalOpen(false);
@@ -889,15 +890,6 @@ export default function CredentialVaultPanel() {
           quickFilterText={quickFilterText}
         />
       </div>
-      {queueCrackJobsStatus && (
-        <div className="pointer-events-none fixed bottom-20 left-1/2 z-50 -translate-x-1/2">
-          {queueCrackJobsStatus && (
-            <div className="pointer-events-auto rounded-xl border border-teal-700/60 bg-teal-900/20 px-3 py-2 text-sm text-teal-100 shadow-2xl backdrop-blur">
-              {queueCrackJobsStatus}
-            </div>
-          )}
-        </div>
-      )}
       {selectedIds.size > 0 && (
         <div className="pointer-events-none fixed bottom-6 left-1/2 z-50 -translate-x-1/2">
           <div className="pointer-events-auto flex items-center gap-2 rounded-xl border border-gray-600 bg-gray-900/95 px-3 py-2 shadow-2xl backdrop-blur">
@@ -954,7 +946,6 @@ export default function CredentialVaultPanel() {
         hashTypeNameById={hashTypeNameById}
         isQueueing={isQueueingCrackJobs}
         queueError={queueCrackJobsError}
-        queueStatus={queueCrackJobsStatus}
         onAttackModeChange={setSelectedAttackMode}
         onClose={() => {
           if (isQueueingCrackJobs) return;
