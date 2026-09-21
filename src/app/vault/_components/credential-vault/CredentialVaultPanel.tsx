@@ -56,6 +56,7 @@ import config from '@/config';
 import useCredentialVault from '@/hooks/useCredentialVault';
 import { Credential } from '@/types/credential';
 import { LogImportType } from '@/types/logImport';
+import { copyTextToClipboard } from '@/utils/clipboard';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -87,10 +88,6 @@ function buildSelectedCredentialClipboardText(credentials: Credential[]): string
       return [username, password, hash].join(':');
     })
     .join('\n');
-}
-
-async function copyTextToClipboard(text: string): Promise<void> {
-  await navigator.clipboard.writeText(text);
 }
 
 export default function CredentialVaultPanel() {
@@ -126,7 +123,6 @@ export default function CredentialVaultPanel() {
   const [isQueueingCrackJobs, setIsQueueingCrackJobs] = useState(false);
   const [queueCrackJobsError, setQueueCrackJobsError] = useState<string | null>(null);
   const [queueCrackJobsStatus, setQueueCrackJobsStatus] = useState<string | null>(null);
-  const [copySelectedStatus, setCopySelectedStatus] = useState<string | null>(null);
   const [isGridLoading, setIsGridLoading] = useState(true);
   const gridApiRef = useRef<GridApi<Credential> | null>(null);
   const pendingNewRowId = useRef<string | null>(null);
@@ -638,28 +634,8 @@ export default function CredentialVaultPanel() {
 
     if (!clipboardText) return;
 
-    try {
-      await copyTextToClipboard(clipboardText);
-      setCopySelectedStatus(
-        `Copied ${selectedCredentials.length} credential${selectedCredentials.length === 1 ? '' : 's'} to clipboard.`
-      );
-    } catch {
-      setCopySelectedStatus('Failed to copy selected credentials.');
-    }
+    await copyTextToClipboard(clipboardText);
   }, [activeTab, selectedIds]);
-
-  // Auto-dismiss copy status toast shortly after it appears.
-  useEffect(() => {
-    if (!copySelectedStatus) return;
-
-    const timeout = window.setTimeout(() => {
-      setCopySelectedStatus(null);
-    }, 2500);
-
-    return () => {
-      window.clearTimeout(timeout);
-    };
-  }, [copySelectedStatus]);
 
   const { crackJobDrafts, canSendSelectedToCracker, sendDisabledReason } = useMemo(() => {
     if (!activeTab) {
@@ -910,16 +886,11 @@ export default function CredentialVaultPanel() {
           quickFilterText={quickFilterText}
         />
       </div>
-      {(queueCrackJobsStatus || copySelectedStatus) && (
+      {queueCrackJobsStatus && (
         <div className="pointer-events-none fixed bottom-20 left-1/2 z-50 -translate-x-1/2">
           {queueCrackJobsStatus && (
             <div className="pointer-events-auto rounded-xl border border-teal-700/60 bg-teal-900/20 px-3 py-2 text-sm text-teal-100 shadow-2xl backdrop-blur">
               {queueCrackJobsStatus}
-            </div>
-          )}
-          {copySelectedStatus && (
-            <div className="pointer-events-auto mt-2 rounded-xl border border-blue-700/60 bg-blue-900/20 px-3 py-2 text-sm text-blue-100 shadow-2xl backdrop-blur">
-              {copySelectedStatus}
             </div>
           )}
         </div>

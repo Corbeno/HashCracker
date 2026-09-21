@@ -10,6 +10,7 @@ import JobProgressBar from './JobProgressBar';
 
 import { HashVaultEntry } from '@/types/hashVault';
 import { Job } from '@/types/job';
+import { copyTextToClipboard } from '@/utils/clipboard';
 import { normalizeHashForType } from '@/utils/hashNormalization';
 
 interface ActiveJobsPanelProps {
@@ -54,12 +55,7 @@ export default function ActiveJobsPanel({
       })
       .join('\n');
 
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch (error) {
-      console.error('Error copying job:', error);
-      setError('Failed to copy job. See console for details.');
-    }
+    await copyTextToClipboard(text);
   };
 
   const handleCancelJob = async (jobId: string) => {

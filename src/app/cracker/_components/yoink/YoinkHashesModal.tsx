@@ -5,6 +5,7 @@ import Image from 'next/image';
 import useYoinkHashes from '../../_hooks/useYoinkHashes';
 
 import SearchableDropdown, { DropdownOption } from '@/components/ui/searchable-dropdown';
+import { copyTextToClipboard } from '@/utils/clipboard';
 
 interface YoinkHashesModalProps {
   isOpen: boolean;
@@ -44,14 +45,14 @@ export default function YoinkHashesModal({ isOpen, onClose, onUseHashes }: Yoink
 
   const handleCopyToClipboard = () => {
     const hashesOnly = displayHashes.map(item => item.hash).join('\n');
-    void navigator.clipboard.writeText(hashesOnly);
+    void copyTextToClipboard(hashesOnly);
   };
 
   const handleCopyAllToClipboard = () => {
     const allContent = displayHashes
       .map(item => (item.password !== undefined ? `${item.hash} → ${item.password}` : item.hash))
       .join('\n');
-    void navigator.clipboard.writeText(allContent);
+    void copyTextToClipboard(allContent);
   };
 
   if (!isOpen) return null;

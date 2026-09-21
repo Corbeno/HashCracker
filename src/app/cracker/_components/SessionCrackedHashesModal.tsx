@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import config from '@/config';
 import { HashVaultEntry } from '@/types/hashVault';
+import { copyTextToClipboard } from '@/utils/clipboard';
 
 interface SessionCrackedHashesModalProps {
   onClose: () => void;
@@ -12,8 +13,6 @@ interface SessionCrackedHashesModalProps {
 export default function SessionCrackedHashesModal({ onClose }: SessionCrackedHashesModalProps) {
   const [crackedHashes, setCrackedHashes] = useState<HashVaultEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const toastTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -34,16 +33,8 @@ export default function SessionCrackedHashesModal({ onClose }: SessionCrackedHas
     void fetchCrackedHashes();
     return () => {
       controller.abort();
-      if (toastTimeoutRef.current != null) window.clearTimeout(toastTimeoutRef.current);
     };
   }, []);
-
-  const copyPassword = (key: string, password: string) => {
-    void navigator.clipboard.writeText(password);
-    setCopiedKey(key);
-    if (toastTimeoutRef.current != null) window.clearTimeout(toastTimeoutRef.current);
-    toastTimeoutRef.current = window.setTimeout(() => setCopiedKey(null), 1100);
-  };
 
   return (
     <div
@@ -115,17 +106,12 @@ export default function SessionCrackedHashesModal({ onClose }: SessionCrackedHas
                       <td className="px-3 py-2">
                         <button
                           type="button"
-                          onClick={() => copyPassword(rowKey, entry.password)}
+                          onClick={() => void copyTextToClipboard(entry.password)}
                           className="font-mono text-white hover:text-blue-200 transition-colors"
                           title="Copy password"
                         >
                           {entry.password}
                         </button>
-                        {copiedKey === rowKey && (
-                          <span className="ml-2 rounded-full bg-green-600/90 px-2 py-0.5 text-xs text-white">
-                            Copied!
-                          </span>
-                        )}
                       </td>
                     </tr>
                   );

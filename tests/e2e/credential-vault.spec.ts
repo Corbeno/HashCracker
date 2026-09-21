@@ -315,7 +315,9 @@ test.describe('Credential Vault', () => {
     });
 
     await copyButton.click();
-    await expect(page.getByText('Copied 1 credential to clipboard.')).toBeVisible();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Copied to clipboard.' })
+    ).toBeVisible();
 
     const copiedText = await page.evaluate(
       () => (window as { __e2eCopiedText?: string }).__e2eCopiedText
@@ -326,7 +328,9 @@ test.describe('Credential Vault', () => {
     await selectRowCheckbox(page, 0);
     await expect(page.getByText('2 selected')).toBeVisible();
     await copyButton.click();
-    await expect(page.getByText('Copied 2 credentials to clipboard.')).toBeVisible();
+    await expect(
+      page.getByRole('status').filter({ hasText: 'Copied to clipboard.' })
+    ).toBeVisible();
 
     const copiedTwoRows = await page.evaluate(
       () => (window as { __e2eCopiedText?: string }).__e2eCopiedText
