@@ -1,0 +1,5 @@
+# TSI pattern: consonant-vowel-consonant-number-number-number-consonant-vowel-consonant
+?2?1?2?3?3?3?2?1?2
+-1 aeiou
+-2 bcdfghjklmnpqrstvwxyz
+-3 1234567890

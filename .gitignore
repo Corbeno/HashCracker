@@ -61,7 +61,7 @@ desktop.ini
 /data/hashes/*
 /data/wordlists/*
 /data/rules/*
-/data/masks/*
+# /data/masks/* we want these
 
 # Playwright
 /playwright-report/
