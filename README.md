@@ -44,7 +44,8 @@ npm run dev
 ## Usage
 
 Input your hashes, pick their type, pick an attack mode, and queue the job!
-![image](https://github.com/user-attachments/assets/8780a6d8-34ef-4e56-a588-dfbb8d608d7a)
+<img width="1351" height="862" alt="image" src="https://github.com/user-attachments/assets/545141bc-21a7-4522-b1b2-443b4e98b76b" />
+
 
 ## Contributing
 
